@@ -1,0 +1,75 @@
+---
+title: 'Likelihood function and Maximum Likelihood Estimation'
+date: 2024-10-13
+topics: [machine-learning]
+draft: false
+---
+
+## Introduction
+
+As I go through the DDPM paper, I am learning a lot of concepts related to probability and statistics. Pieces of this will be studied further and described in a short post. So let’s get started!
+
+## Probability Density Function
+
+Consider the probability density function $p_\theta(x): \Omega \rightarrow [0,1]$, which represents the probability of the event $x \in \Omega$. Notice the $\theta$, which is often called the _parameter_. The parameter is a knob that we can tune to change the shape of the distribution $p_\theta(\cdot)$.
+
+For example, the normal distribution is given by
+
+$$
+p_{\mu, \sigma}(x) = \frac{1}{\sigma \sqrt{2 \pi}}\exp(-\frac{1}{2} \left(\frac{x-\mu}{\sigma}\right)^2).
+$$
+
+Here, the $\mu$ and $\sigma$ are two parameters that changes the shape of the distribution. Hence, the <mark>probability density function uses fixed parameters to compute the probability of an event happening</mark> (or given a parameter, we can do _sampling_, but this is to be discussed in the future post).
+
+## Likelihood Function
+
+For the likelihood function, we now fix the _event_ and vary the _parameter_. Recall that this is reversing the role of the event and parameter compared to the probability function.
+
+For example, given a single observed event $x$, the likelihood of normal distribution is given by
+
+$$
+\mathcal{L}_{x}(\mu, \sigma) = \frac{1}{\sigma \sqrt{2 \pi}}\exp(-\frac{1}{2} \left(\frac{x-\mu}{\sigma}\right)^2).
+$$
+
+The likelihood function gives us a “number” on the likeliness of the event $x$ being sampled from the distribution parameterized by $\mu$ and $\sigma$. This feature is often used when we want to estimate the parameter of the distribution when we are given a set of data. Let’s investigate this further.
+
+Instead of a single observed event $x$, suppose we have a set of observations $x_1,x_2,\cdots,x_k$ and assume each observation is independent and identically distributed (i.i.d.). Then the likelihood function represents the likeliness of observing the given $k$ data with some fixed parameter $\mu$ and $\sigma$. That is,
+
+$$
+\mathcal{L}_{x_1,\ldots,x_k}(\mu, \sigma) = \prod_{i=1}^k\frac{1}{\sigma \sqrt{2 \pi}}\exp(-\frac{1}{2} \left(\frac{x_i-\mu}{\sigma}\right)^2).
+$$
+
+## Log-likelihood and Maximum Likelihood Estimation
+
+Continuing the previous example, often the task is to estimate the parameter of the distribution $\mu$ and $\sigma$ (or $\theta$ in general). One way to achieve this is to maximize the value of the likelihood, i.e., to solve
+
+$$
+\theta^* = (\mu^*, \sigma^*) = \arg \max_{\mu, \theta} \mathcal{L}_{x_1,\ldots,x_k}(\mu, \sigma).
+$$
+
+However, the above is equivalent to (and often more convenient) optimizing the _log-likelihood function_ defined as
+
+$$
+l_{x_1,\ldots,x_k}(\mu, \sigma) = \ln \mathcal{L}_{x_1,\ldots,x_k}(\mu, \sigma)
+$$
+
+Hence, we arrive at the <mark>maximum likelihood estimation problem</mark>. Maximum likelihood estimation maximizes the log-likelihood function so that we can find the parameters of the probability distribution that maximize the likelihood of seeing the observed data.
+
+Continuing our normal distribution example, log-likelihood is given by
+
+$$
+l_{x_1,\ldots,x_k}(\mu, \sigma)=\ln  \prod_{i=1}^k\frac{1}{\sigma \sqrt{2 \pi}}\exp(-\frac{1}{2} \left(\frac{x_i-\mu}{\sigma}\right)^2)\\=-k\ln(\sqrt{2\pi} \cdot \sigma) - \frac{1}{2\sigma^2} \sum_{i=1}^k (x_i - \mu)^2
+$$
+
+Using the first-order optimality condition, it can be easily shown that the optimal parameters are given by
+
+$$
+\mu^* = \frac{1}{k} \sum_{i=1}^k x_i, (\sigma^*)^2 = \frac{1}{k}\sum_{i=1}^k (x_k - \mu^*)^2,
+$$
+
+i.e., the sample mean and unadjusted sample variance.
+
+## References
+
+- [https://www.statlect.com/fundamentals-of-statistics/normal-distribution-maximum-likelihood](https://www.statlect.com/fundamentals-of-statistics/normal-distribution-maximum-likelihood)
+- [https://en.wikipedia.org/wiki/Likelihood\_function](https://en.wikipedia.org/wiki/Likelihood_function)

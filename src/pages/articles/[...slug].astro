@@ -1,0 +1,41 @@
+---
+import { render } from 'astro:content';
+import ArticleLayout from '@/layouts/ArticleLayout.astro';
+import { mdxComponents } from '@/components/mdx';
+import { adjacentArticles, getArticles, relatedArticles, summarize, type Article } from '@/lib/articles';
+
+export async function getStaticPaths() {
+  const articles = await getArticles();
+  return articles.map((article) => {
+    const { previous, next } = adjacentArticles(articles, article);
+    const related = relatedArticles(articles, article).filter(
+      (a) => a.id !== previous?.id && a.id !== next?.id,
+    );
+    return {
+      params: { slug: article.id },
+      props: { article, previous, next, related },
+    };
+  });
+}
+
+interface Props {
+  article: Article;
+  previous?: Article;
+  next?: Article;
+  related: Article[];
+}
+
+const { article, previous, next, related } = Astro.props;
+const { Content, headings } = await render(article);
+---
+
+<ArticleLayout
+  article={article}
+  headings={headings}
+  previous={previous}
+  next={next}
+  related={related}
+  summary={summarize(article.body)}
+>
+  <Content components={mdxComponents} />
+</ArticleLayout>

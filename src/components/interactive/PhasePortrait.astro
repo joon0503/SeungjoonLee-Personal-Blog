@@ -1,0 +1,175 @@
+---
+/**
+ * Phase portrait of the second-order system
+ *
+ *   ẍ + 2ζω ẋ + ω² x = 0   ⇔   ẋ₁ = x₂,  ẋ₂ = −ω² x₁ − 2ζω x₂
+ *
+ * with sliders for ζ and ω. Click the plot to add a trajectory.
+ *
+ * The markup (controls + empty plot) is rendered at build time; the
+ * implementation in ./phase-portrait.ts is only downloaded once the figure
+ * scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+
+export interface Props {
+  zeta?: number;
+  omega?: number;
+  caption?: string;
+}
+
+const {
+  zeta = 0.3,
+  omega = 1,
+  caption = 'Phase portrait of ẍ + 2ζωẋ + ω²x = 0. Drag the sliders; click the plot to start a new trajectory.',
+} = Astro.props;
+---
+
+<Figure caption={caption} class="interactive-figure">
+  <phase-portrait class="phase-portrait" data-zeta={zeta} data-omega={omega}>
+    <div class="plot">
+      <svg
+        viewBox="0 0 400 400"
+        role="img"
+        aria-label="Phase portrait: vector field and trajectories in the (x₁, x₂) plane"
+        data-plot></svg>
+      <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+    </div>
+
+    <div class="panel">
+      <label>
+        <span class="label">Damping ratio <i>ζ</i> = <output data-out="zeta">{zeta.toFixed(2)}</output></span>
+        <input type="range" min="-0.5" max="2" step="0.01" value={zeta} data-in="zeta" />
+      </label>
+      <label>
+        <span class="label">Natural frequency <i>ω</i> = <output data-out="omega">{omega.toFixed(2)}</output></span>
+        <input type="range" min="0.2" max="3" step="0.01" value={omega} data-in="omega" />
+      </label>
+
+      <dl class="readout">
+        <dt>Eigenvalues</dt>
+        <dd data-out="eigs">—</dd>
+        <dt>Equilibrium</dt>
+        <dd data-out="kind">—</dd>
+      </dl>
+
+      <button type="button" data-action="reset">Reset trajectories</button>
+    </div>
+  </phase-portrait>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class PhasePortraitElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountPhasePortrait } = await import('./phase-portrait');
+        mountPhasePortrait(this);
+      });
+    }
+  }
+
+  if (!customElements.get('phase-portrait')) {
+    customElements.define('phase-portrait', PhasePortraitElement);
+  }
+</script>
+
+<style>
+  .phase-portrait {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+  }
+
+  @media (min-width: 40rem) {
+    .phase-portrait {
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      align-items: start;
+    }
+  }
+
+  .plot {
+    aspect-ratio: 1;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: manipulation;
+  }
+
+  .fallback {
+    margin: 0;
+    color: var(--text-muted);
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .label {
+    color: var(--text-muted);
+  }
+
+  i {
+    font-family: var(--serif);
+    font-size: 1.1em;
+  }
+
+  output {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[type='range'] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  .readout {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 0.75rem;
+    margin: 0;
+  }
+
+  dt {
+    color: var(--text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button {
+    align-self: start;
+    padding: 0.35rem 0.75rem;
+    font: inherit;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--text-muted);
+  }
+</style>

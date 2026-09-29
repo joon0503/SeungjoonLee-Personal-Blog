@@ -1,0 +1,50 @@
+---
+title: 'Fixing auto-complete and missing attribute error for MUJOCO (python) in VS Code'
+date: 2025-05-06
+topics: [robotics]
+draft: false
+---
+
+## Issue
+
+Typical workspace set up I’m using for the python project involves (among others…)
+
+- `VS Code` for the editor
+- `uv` for package management, `ruff` for lint and format
+- `pyproject.toml` for overall settings
+- `pyright` for static check
+- `pre-commit` for pre-commits
+
+One issue I faced when trying to use `mujoco` in python is that it does not provide typing information, and hence static analyzer complains about missing attributes as shown below. This also means that the auto-completion does not work.
+
+<Figure
+  src="/images/fixing-auto-complete-and-missing-attribute-error-for-mujoco-python-in-vs-code/pylance-missing-attribute.png"
+  alt="VS Code tooltip: &quot;MjModel&quot; is not a known attribute of module &quot;mujoco&quot; (Pylance reportAttributeAccessIssue)."
+  caption="Pylance complains about mujoco."
+  width={513}
+  height={108}
+/>
+
+After some searches, I found out that this is a known issue.
+
+[https://github.com/google-deepmind/mujoco/issues/1292](https://github.com/google-deepmind/mujoco/issues/1292)
+
+## Solution
+
+A work-around solution is provided in the link above, but had to be modified a bit to fit my environment.
+
+1. `uv add pybind11-stubgen`
+2. `uv run pybind11-stubgen mujoco -o ./typings` to create stub files for mujoco
+3. Add `stubPath = "./typings"` under `[tool.pyright]` in `pyproject.toml` file
+4. Add `exclude: ^typings/` to exclude generated stub files to pre-commit actions
+
+Main tasks is to generate stub files for `mujoco` (although it seems like not all APIs are supported) using `pybind11-stubgen` and add the stub path so that static checker can use the generated files.
+
+With the fix, pylance no longer complains and gives basic information as below as well as the auto-complete feature!
+
+<Figure
+  src="/images/fixing-auto-complete-and-missing-attribute-error-for-mujoco-python-in-vs-code/pylance-fixed.png"
+  alt="VS Code hover showing the signature of mujoco.MjModel.from_xml_string and its docstring."
+  width={627}
+  height={135}
+/>

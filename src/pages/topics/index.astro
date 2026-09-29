@@ -1,0 +1,92 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { articlesByTopic, getArticles } from '@/lib/articles';
+import { TOPIC_IDS, TOPICS, topicHref } from '@/lib/topics';
+
+const articles = await getArticles();
+const topics = TOPIC_IDS.map((id) => ({
+  id,
+  ...TOPICS[id],
+  count: articlesByTopic(articles, id).length,
+}));
+---
+
+<BaseLayout title="Topics" description="Articles grouped by subject.">
+  <div class="container page">
+    <header class="page-header">
+      <h1>Topics</h1>
+    </header>
+
+    <ul class="topic-list">
+      {
+        topics.map((t) => (
+          <li>
+            <h2>
+              <a href={topicHref(t.id)}>{t.title}</a>
+              <span class="count">{t.count}</span>
+            </h2>
+            <p>{t.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    max-width: calc(var(--measure) + 2 * var(--gutter));
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  .page-header {
+    margin-bottom: 2rem;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--step-3);
+  }
+
+  .topic-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    padding-block: 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  h2 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  h2 a:hover {
+    color: var(--accent);
+  }
+
+  .count {
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  p {
+    margin: 0.3rem 0 0;
+    font-family: var(--body);
+    color: var(--text-muted);
+  }
+</style>

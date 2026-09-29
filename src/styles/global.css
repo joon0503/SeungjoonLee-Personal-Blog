@@ -1,0 +1,409 @@
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --bg: #fcfcfb;
+  --bg-subtle: #f4f4f2;
+  --text: #1b1b1a;
+  --text-muted: #5f5e5a;
+  --text-faint: #8a8984;
+  --border: #e3e2de;
+  --border-strong: #cfcdc7;
+  --accent: #1f5f9e;
+  --accent-hover: #164a7c;
+  --focus: #2b7de0;
+  --code-bg: #f5f5f3;
+  --selection: #d6e4f5;
+
+  --serif: var(--font-serif), Georgia, serif;
+  --sans: var(--font-sans), system-ui, sans-serif;
+  --mono: var(--font-mono), ui-monospace, monospace;
+
+  /* Body text: article prose, descriptions, intro. Swap here to try another font
+     (e.g. var(--serif) with --body-size: var(--step-0) and --body-leading: 1.7). */
+  --body: var(--sans);
+  --body-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  --body-leading: 1.65;
+
+  --measure: 42rem; /* article text column, ~70 characters */
+  --page: 72rem; /* outer page width */
+  --gutter: clamp(1.25rem, 4vw, 2.5rem);
+
+  --step--1: 0.875rem;
+  --step-0: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
+  --step-1: clamp(1.25rem, 1.15rem + 0.4vw, 1.4rem);
+  --step-2: clamp(1.45rem, 1.3rem + 0.7vw, 1.75rem);
+  --step-3: clamp(1.9rem, 1.6rem + 1.4vw, 2.6rem);
+}
+
+/* Dark theme: set by the header toggle (data-theme on <html>); light is the default. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #141414;
+  --bg-subtle: #1c1c1b;
+  --text: #e6e5e1;
+  --text-muted: #a9a8a2;
+  --text-faint: #7b7a75;
+  --border: #2c2c2a;
+  --border-strong: #3d3d3a;
+  --accent: #7fb2e8;
+  --accent-hover: #a5c9f0;
+  --focus: #7fb2e8;
+  --code-bg: #1b1b1a;
+  --selection: #2a4466;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: 1.5rem;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+}
+
+::selection {
+  background: var(--selection);
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--sans);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  font-weight: 650;
+  text-wrap: balance;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--mono);
+  font-size: 0.875em;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2.5rem 0;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--page);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.visually-hidden,
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Small uppercase label used for section headings and metadata. */
+.eyebrow {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Prose (article body)
+   ========================================================================== */
+
+.prose {
+  font-family: var(--body);
+  font-size: var(--body-size);
+  line-height: var(--body-leading);
+  font-optical-sizing: auto;
+  overflow-wrap: break-word;
+}
+
+.prose > * + * {
+  margin-top: 1.25em;
+}
+
+.prose p,
+.prose ul,
+.prose ol,
+.prose blockquote,
+.prose table,
+.prose figure,
+.prose pre {
+  margin-bottom: 0;
+}
+
+.prose h2 {
+  font-size: var(--step-2);
+  margin: 2.4em 0 0;
+}
+
+.prose h3 {
+  font-size: var(--step-1);
+  margin: 2em 0 0;
+}
+
+.prose h4 {
+  font-size: 1em;
+  margin: 1.75em 0 0;
+}
+
+.prose h2 + *,
+.prose h3 + *,
+.prose h4 + * {
+  margin-top: 0.75em;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.4em;
+}
+
+.prose li + li {
+  margin-top: 0.35em;
+}
+
+.prose li::marker {
+  color: var(--text-faint);
+}
+
+.prose blockquote {
+  margin-inline: 0;
+  padding-left: 1.1em;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.prose strong {
+  font-weight: 650;
+}
+
+.prose mark {
+  background: var(--selection);
+  color: inherit;
+  padding: 0 0.15em;
+  border-radius: 2px;
+}
+
+/* Inline code */
+.prose :not(pre) > code {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+  font-size: 0.82em;
+}
+
+/* Tables */
+.prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.prose th,
+.prose td {
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  font-weight: 600;
+  border-bottom-color: var(--border-strong);
+}
+
+.prose img {
+  display: block;
+  margin-inline: auto;
+}
+
+/* Footnotes (GFM) */
+.prose .footnotes {
+  margin-top: 3rem;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.prose .footnotes::before {
+  content: '';
+  display: block;
+  width: 4rem;
+  border-top: 1px solid var(--border-strong);
+  margin-bottom: 1rem;
+}
+
+/* ==========================================================================
+   Code blocks (Shiki)
+   ========================================================================== */
+
+.prose pre {
+  position: relative;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+  line-height: 1.6;
+  font-size: 0.8125rem;
+  tab-size: 4;
+}
+
+.prose pre.astro-code {
+  background-color: var(--code-bg) !important;
+}
+
+.prose pre code {
+  font-size: inherit;
+}
+
+[data-theme='dark'] .astro-code,
+[data-theme='dark'] .astro-code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
+/* Copy button (added by ArticleLayout script) */
+.copy-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  font: 500 0.7rem var(--sans);
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.code-wrapper {
+  position: relative;
+}
+
+.code-wrapper > pre {
+  margin: 0;
+}
+
+.code-wrapper:hover .copy-button,
+.copy-button:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .copy-button {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   Math (KaTeX)
+   ========================================================================== */
+
+.prose .katex {
+  font-size: 1.08em;
+}
+
+.prose .katex-display {
+  margin: 1.5em 0;
+  padding: 0.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.prose .katex-display > .katex {
+  font-size: 1.12em;
+}

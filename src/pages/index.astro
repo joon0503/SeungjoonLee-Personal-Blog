@@ -1,0 +1,133 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ArticleList from '@/components/ArticleList.astro';
+import { articlesByTopic, getArticles } from '@/lib/articles';
+import { TOPIC_IDS, TOPICS, topicHref } from '@/lib/topics';
+import { SITE } from '@/site.config';
+
+const articles = await getArticles();
+const latest = articles.slice(0, 6);
+const topics = TOPIC_IDS.map((id) => ({ id, ...TOPICS[id], count: articlesByTopic(articles, id).length }));
+---
+
+<BaseLayout>
+  <div class="container home">
+    <section class="intro">
+      <h1>{SITE.title}</h1>
+      <p class="tagline">{SITE.tagline}</p>
+      <p class="bio">
+        I work on robotics and manipulation. This is where I write long-form notes on control theory, linear
+        algebra, computer vision, robotics, machine learning, and other technical things that I'm learning along my path. I try to dig deep into the 
+        fundamentals and mathematics behind the ideas and add interactive visualization where it helps.
+      </p>
+    </section>
+
+    <section aria-labelledby="latest">
+      <div class="section-head">
+        <h2 id="latest" class="eyebrow">Latest writing</h2>
+        {articles.length > latest.length && <a href="/articles/">All articles →</a>}
+      </div>
+      <ArticleList articles={latest} />
+    </section>
+
+    <section aria-labelledby="topics">
+      <div class="section-head">
+        <h2 id="topics" class="eyebrow">Topics</h2>
+      </div>
+      <ul class="topics">
+        {
+          topics.map((t) => (
+            <li>
+              <a href={topicHref(t.id)}>{t.title}</a>
+              <span class="count">{t.count}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .home {
+    max-width: calc(var(--measure) + 2 * var(--gutter));
+    padding-top: clamp(3rem, 9vw, 6rem);
+  }
+
+  .intro {
+    margin-bottom: clamp(3rem, 7vw, 4.5rem);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--step-3);
+    letter-spacing: -0.02em;
+  }
+
+  .tagline {
+    margin: 0.4rem 0 0;
+    color: var(--text-muted);
+    font-size: 1rem;
+  }
+
+  .bio {
+    margin: 1.5rem 0 0;
+    font-family: var(--body);
+    font-size: var(--body-size);
+    line-height: var(--body-leading);
+  }
+
+  section + section {
+    margin-top: 3.5rem;
+  }
+
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .section-head h2 {
+    margin: 0;
+  }
+
+  .section-head a {
+    font-size: 0.8125rem;
+    text-decoration: none;
+  }
+
+  .topics {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .topics li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .topics a {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .topics a:hover {
+    color: var(--accent);
+  }
+
+  .count {
+    font-size: 0.8125rem;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

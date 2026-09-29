@@ -1,0 +1,49 @@
+---
+import { SITE } from '@/site.config';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container inner">
+    <span>© {year} {SITE.author}</span>
+    <nav aria-label="Footer">
+      {SITE.links.github && <a href={SITE.links.github}>GitHub</a>}
+      {SITE.links.linkedin && <a href={SITE.links.linkedin}>LinkedIn</a>}
+      {SITE.links.scholar && <a href={SITE.links.scholar}>Scholar</a>}
+      {SITE.links.email && <a href={`mailto:${SITE.links.email}`}>Email</a>}
+      <a href="/sitemap-index.xml">Sitemap</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: 5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.875rem;
+    color: var(--text-faint);
+  }
+
+  .inner {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-block: 1.75rem;
+  }
+
+  nav {
+    display: flex;
+    gap: 1.25rem;
+  }
+
+  a {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--text);
+  }
+</style>

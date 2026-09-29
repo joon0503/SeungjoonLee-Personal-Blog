@@ -1,0 +1,128 @@
+---
+title: 'Layer Normalization & RMS Normalization'
+date: 2025-07-20
+updated: 2025-08-10
+topics: [machine-learning]
+draft: false
+---
+
+## Introduction
+
+In effort to have deeper understanding of the recent advancements in the machine-learning based approach for robotics system, I’ve been starting from the basics. One of the first step is to study transformer architecture (which will lead to its usage in vision transformer and finally to pre-trained network which are used to encode camera images to control robot). In this post, I will focus on small part of the transformer architecture called Layer Normalization and its variant RMS Normalization.
+
+## Transformer Architecture
+
+In the famous [Attention is all you need](https://arxiv.org/pdf/1706.03762) paper, we can see the basic architecture of the transformer given by the following figure.
+
+<Figure
+  src="/images/layer-normalization-rms-normalization/transformer-architecture.png"
+  alt="The Transformer model architecture from the paper Attention Is All You Need, with encoder and decoder stacks containing Add & Norm blocks."
+  width={406}
+  height={603}
+/>
+
+Here, let’s focus on the block **<mark>Add & Norm</mark>** block. Add & Norm block can be written as
+
+$$
+y=\mathcal{N}(x + dx)
+$$
+
+where $\mathcal{N}$ is the normalization function, $y$ is the output, $x$ and $dx$ are the input. (This structure is called residual connections, and will be discussed in a separate post).
+
+The “Add” part of the “Add & Norm” means the residual connection and how $x$ and $dx$ are added. More importantly, “Norm” part represents the **normalization function** we apply before proceeding to next blocks of operations.
+
+## What is normalization function and Why do we use it?
+
+The role of the normalization function is the scale and shift the input values to some desired range (usually between -1  ~ 1). There are various methods and technical details on exactly how shifting and scaling are done, which are to be discussed in coming paragraphs. However, normalizing these values have proven to be essential in training large neural networks and improve stability of the training.
+
+## Layer Normalization
+
+Layer normalization is proposed in the paper [Layer Normalization](https://arxiv.org/pdf/1607.06450). Given an input vector $x$, the layer normalization performs
+
+$$
+y=\frac{x - \mathbb{E}(x)}{\sqrt{{\mathrm{Var}}(x) + \epsilon}} \cdot \gamma + \beta
+$$
+
+where $E(x)$ is element-wise mean of vector $x$, $\mathrm{Var}(x)$ is the biased estimate of variance, and $\epsilon$ is a small number to prevent division by zero. It also includes learnable parameters $\gamma$ and $\beta$ which is of same shape of $x$ which further scales and shifts the result, independent of the value of $x$.
+
+It is called “Layer Normalization”, because $x \in \mathbb{R}^n$ can be viewed as output of activation of a single layer of neurons, represented as $n$-dimensional vector, and we normalize it using the statistics of individual elements of the vector $x$. Once statistics is normalized, we pass it to next layer (to apply $Wx + b$ and then nonlinear activation). Notice this does not involve any batch dimensions which is in contrast with other normalization techniques such as “batch normalization”.
+
+In PyTorch, layer normalization is implemented as **LayerNorm** and its documentation can be found in [PyTorch LayerNorm Documentation](https://docs.pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html#torch.nn.LayerNorm). It is important to notice that the input argument takes a list of integers. This is used when we take statistics over multiple dimensions. Notably, in transformer architectures, we often have tensor of the shape (B, T, F), where B is batch size, T is number of tokens, and F is the feature dimension. Then, the layer norm is used as **LayerNorm(\[F\])**, which means statistics is computed only along F dimension.
+
+## RMS Normalization
+
+RMS Normalization is proposed in the paper [Root Mean Square Layer Normalization](https://arxiv.org/pdf/1910.07467). Given an input vector $x \in \mathbb{R}^n$, the RMS Normalization performs
+
+$$
+y=\frac{x}{\mathrm{RMS}(x)} \cdot \gamma, \quad \mathrm{RMS}(x) = \sqrt{\epsilon + \frac{1}{n} \sum_{i=1}^n x_i}
+$$
+
+where $\epsilon$ is small number to prevent division by zero and $\gamma$ is learnable parameter of shape $x$. RMS Normalization computes the element-wise root-mean-square of the vector, and scale it by RMS value. Notice that it does not apply any bias, hence its mean after normalization is not zero. This is in contrast to layer normalization which also applied bias to ensure mean after normalization is zero (when $\beta=0$).
+
+In the paper, it is argued that the bias (i.e., re-centering invariance) is disposable and scaling (i.e., re-scaling invariance) is the important property. By removing the bias, it removes the need to compute the variance, which improves the computational efficiency. Paper proposes further modification called _pRMS normalization_ which only uses _p%_ of the overall vector to perform the scaling, but it seems like pytorch does not have that implemented. Pytorch implementation for RMSNorm can be found in [PyTorch RMSNorm Documentation](https://docs.pytorch.org/docs/stable/generated/torch.nn.RMSNorm.html).
+
+## Invariance Properties (WIP)
+
+From the definition of the layer and RMS normalization (and in general, for any normalization technique), one can sense that the normalization uses statistics of the data in some way to “normalize” the incoming data. In order to gain more insight, a mathematically rigorous way to characterize the behavior of each normalization is to analyze and compare their _invariance property._
+
+In order to prove various invariance properties, recall our basic formula for single layer is given by
+
+$$
+y=h\left( \frac{\gamma}{\sigma}(Wx - 1_N \mu) + b \right)
+$$
+
+where $h$ is the nonlinear activation function, $x$ is the input, $y$ is the output, $\gamma$ is learnable parameter for normalization, $b$ is the learnable bias, and $W$ is the weight matrix. $\mu$ and $\sigma$ is mean and standard deviation of $Wx$ respectively. (Recall without normalization we would have $y = h(Wx + b)$)
+
+### Weight Rescaling and Recentering
+
+Suppose that our weight matrix is rescaled and recentered, that is,
+
+$$
+W' = \delta W + 1_N \xi^\top
+$$
+
+where $\delta$ is the scaling factor and $\xi$ is vector off recentering offset. Then, we have $\mu' = \frac{1}{N} 1_N 1_N^\top (\delta W + 1_N \xi^\top)x$ and $\sigma' = \delta \sigma$. Using these new statistics, we have
+
+$$
+\begin{aligned}
+y' &= h\left( \frac{\gamma}{\sigma'}(W'x - \mu') + b \right) \\
+&= h \left( \frac{\gamma}{\delta \sigma}(\delta W x + 1_N \xi^\top x - \frac{1}{N} 1_N 1_N^\top \delta W x - \frac{1}{N} 1_N 1_N^\top 1_N \xi^\top x) + b\right) \\
+&= h \left( \frac{\gamma}{\delta \sigma}(\delta W x + 1_N \xi^\top x - \frac{1}{N} 1_N 1_N^\top \delta W x - 1_N \xi^\top x) + b\right) \\
+&= h \left( \frac{\gamma}{\delta \sigma}(\delta (W x - \frac{1}{N} 1_N 1_N^\top W x) ) + b\right) \\
+&= h \left( \frac{\gamma}{\delta \sigma}(\delta (W x -\mu) ) + b\right) \\
+&= h \left( \frac{\gamma}{\sigma}((W x -\mu) ) + b\right) \\
+&= y
+\end{aligned}
+$$
+
+For above, we have used results such as $1_N^\top 1_N = N$. In conclusion, rescaling and/or adding offset to the weight matrix $W$ have no impact on the final result of the neural network.
+
+### Dataset Rescaling
+
+Similar to weight matrix rescaling, we have similar invariance property if data is rescaled. This can be shown as below
+
+$$
+\begin{aligned}
+y' &= h\left( \frac{\gamma}{\sigma'}(Wx - \mu') + b \right) \\
+&= h\left( \frac{\gamma}{\delta \sigma}(W \delta x + \delta \mu) + b \right) \\
+&= h\left( \frac{\gamma}{\sigma}((Wx - \mu)) + b \right) \\
+&= y
+\end{aligned}
+$$
+
+However, notice that the modern usage of layer normalization deviates from simple scenario analyzed in the original paper. Specifically, layer normalization isn’t used as a part of single layer perceptron structure, rather is is simply applied as it is in the middle of more complex architecture.
+
+## Back to transformer architecture
+
+My interest for normalization initially started while studying the transformer architecture. Although normalization looks simple and rather naive, its role and placement within the transformer architecture has been studied extensively. One notable question is _**where should we put the normalization?**_ This question is discussed in the paper [On Layer Normalization in the Transformer Architecture](https://arxiv.org/pdf/2002.04745), which proposes variations of the transformer architecture based on the position of the normalization layer. Interested readers can refer to the paper, and my own discussion will be done in the separate post.
+
+## Conclusion
+
+We have discussed two techniques for applying normalization. However, pytorch has more types of normalization (see [normalization-layers](https://docs.pytorch.org/docs/stable/nn.html#normalization-layers) for full list). Perhaps I will touch on those later.
+
+## Additional References
+
+- [https://machinelearningmastery.com/layernorm-and-rms-norm-in-transformer-models/](https://machinelearningmastery.com/layernorm-and-rms-norm-in-transformer-models/)
+- [https://github.com/karpathy/llm.c/blob/master/doc/layernorm/layernorm.md](https://github.com/karpathy/llm.c/blob/master/doc/layernorm/layernorm.md)
+- [https://nlp.seas.harvard.edu/annotated-transformer/](https://nlp.seas.harvard.edu/annotated-transformer/)
+- [https://www.youtube.com/watch?v=G45TuC6zRf4](https://www.youtube.com/watch?v=G45TuC6zRf4)

@@ -1,0 +1,97 @@
+---
+import TopicTags from './TopicTags.astro';
+import { articleHref, formatDate, type Article } from '@/lib/articles';
+
+export interface Props {
+  articles: Article[];
+  /** Show the description under each title. */
+  showDescription?: boolean;
+  /** Heading level for article titles, to keep the page outline correct. */
+  headingLevel?: 2 | 3;
+}
+
+const { articles, showDescription = true, headingLevel = 3 } = Astro.props;
+const Heading = `h${headingLevel}` as 'h2' | 'h3';
+---
+
+<ul class="article-list">
+  {
+    articles.map((article) => (
+      <li>
+        <Heading class="title">
+          <a href={articleHref(article)}>{article.data.title}</a>
+          {article.data.draft && <span class="draft">draft</span>}
+        </Heading>
+        {showDescription && article.data.description && <p class="description">{article.data.description}</p>}
+        <div class="meta">
+          <TopicTags topics={article.data.topics} />
+          <time datetime={article.data.date.toISOString()}>{formatDate(article.data.date)}</time>
+        </div>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .article-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  li:first-child {
+    padding-top: 0.5rem;
+  }
+
+  .title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .title a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .title a:hover {
+    color: var(--accent);
+  }
+
+  .draft {
+    margin-left: 0.5rem;
+    padding: 0.05rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    vertical-align: middle;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-strong);
+    border-radius: 3px;
+  }
+
+  .description {
+    margin: 0.35rem 0 0;
+    font-family: var(--body);
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  time {
+    flex-shrink: 0;
+    font-size: 0.8125rem;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

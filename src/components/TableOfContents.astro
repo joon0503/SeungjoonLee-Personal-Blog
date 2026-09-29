@@ -1,0 +1,68 @@
+---
+import type { MarkdownHeading } from 'astro';
+
+export interface Props {
+  headings: MarkdownHeading[];
+  /** Deepest heading level to include (2 = h2 only, 3 = h2 + h3). */
+  maxDepth?: number;
+}
+
+const { headings, maxDepth = 3 } = Astro.props;
+// `footnote-label` is the (visually hidden) heading GFM adds above footnotes.
+const items = headings.filter((h) => h.depth >= 2 && h.depth <= maxDepth && h.slug !== 'footnote-label');
+---
+
+{
+  items.length > 0 && (
+    <ol class="toc">
+      {items.map((h) => (
+        <li class:list={[`depth-${h.depth}`]}>
+          <a href={`#${h.slug}`} data-toc-link={h.slug}>
+            {h.text}
+          </a>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+<style>
+  .toc {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  li + li {
+    margin-top: 0.45rem;
+  }
+
+  .depth-3 {
+    padding-left: 0.85rem;
+  }
+
+  a {
+    display: block;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    margin-left: -0.85rem;
+    padding-left: calc(0.85rem - 2px);
+  }
+
+  .depth-3 a {
+    margin-left: -1.7rem;
+    padding-left: calc(1.7rem - 2px);
+  }
+
+  a:hover {
+    color: var(--text);
+  }
+
+  a[aria-current='true'] {
+    color: var(--text);
+    border-left-color: var(--accent);
+  }
+</style>
