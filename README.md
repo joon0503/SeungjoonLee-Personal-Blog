@@ -13,6 +13,7 @@ npm install
 npm run dev       # http://localhost:4321, drafts visible
 npm run build     # type-check (astro check) + static build into dist/
 npm run preview   # serve dist/ locally
+npm run ci        # what CI runs: build + internal link check
 ```
 
 ## Writing an article
@@ -77,6 +78,16 @@ src/
 └── styles/global.css         # tokens, typography, prose, code and math styles
 public/                       # favicon, robots.txt, _headers (Cloudflare cache rules), figures/, images/
 ```
+
+## CI / CD
+
+- **CI** (`.github/workflows/ci.yml`, GitHub Actions): on every push to `main` and every pull request,
+  runs `npm ci`, `npm run build` (type-check + content schema validation + build) and
+  `npm run check:links` (every internal link, image and `#anchor` in `dist/` must resolve).
+- **CD** (Cloudflare Workers Builds): every push to `main` builds and deploys. CI does not deploy.
+
+Recommended flow for bigger changes: work on a branch → open a PR → CI runs (and Cloudflare posts a
+preview URL if non-production branch builds are enabled) → merge → Cloudflare deploys `main`.
 
 ## Deployment (Cloudflare Workers)
 
