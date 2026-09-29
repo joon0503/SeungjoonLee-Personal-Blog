@@ -1,0 +1,48 @@
+---
+title: 'A Deep Dive into Positional Embeddings'
+description: 'From sinusoidal encodings to RoPE, its multi-modal and temporal variants, and models that use no positional encoding at all.'
+date: 2026-09-29
+topics: [machine-learning]
+draft: true
+---
+
+## Introduction
+
+{/* Self-attention is permutation-equivariant: without position information, a sequence is a set.
+    Absolute vs relative position; what "good" properties we want (extrapolation, relative-distance awareness). */}
+
+## Sinusoidal positional encoding
+
+{/* Definition from "Attention Is All You Need"; frequencies θ_i = 10000^{-2i/d}.
+    Why sin/cos: a fixed offset is a linear map (rotation) of the encoding. Added to token embeddings.
+    Suggestion: compare with learned absolute embeddings (BERT/GPT-2) and their extrapolation limits. */}
+
+## Rotary positional embedding (RoPE)
+
+{/* Derivation: rotate query/key pairs by angle m·θ_i so that q_mᵀ k_n depends only on (m − n).
+    2D rotation view and complex-number view. Applied to q, k (not v), in every layer.
+    Long-term decay; base frequency; context extension (position interpolation, NTK-aware scaling, YaRN). */}
+
+## Multi-modal RoPE
+
+{/* Extending positions beyond 1D: 2D RoPE for image patches (axial split of dimensions over x, y).
+    M-RoPE (Qwen2-VL): split rotary dims into temporal / height / width components for text + images + video. */}
+
+## Temporal RoPE
+
+{/* Encoding time for video and robot trajectories; timestamps vs frame indices;
+    Suggestion: relevance to robotics — observation history and action chunks in manipulation policies. */}
+
+## NoPE: no positional encoding
+
+{/* Causal decoder-only models can infer position from the causal mask alone.
+    Recent usage: interleaving NoPE layers with RoPE layers for long-context models.
+    Suggestion: verify which recent models do this and cite the specific papers/reports before publishing. */}
+
+## Comparison
+
+{/* Table: method | absolute/relative | where applied | extrapolation | typical models. */}
+
+## Summary
+
+## References
