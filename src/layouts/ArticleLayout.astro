@@ -1,0 +1,361 @@
+---
+import type { MarkdownHeading } from 'astro';
+import BaseLayout from './BaseLayout.astro';
+import TableOfContents from '@/components/TableOfContents.astro';
+import TopicTags from '@/components/TopicTags.astro';
+import { articleHref, formatDate, type Article } from '@/lib/articles';
+import { topicTitle } from '@/lib/topics';
+import 'katex/dist/katex.min.css';
+
+export interface Props {
+  article: Article;
+  headings: MarkdownHeading[];
+  previous?: Article;
+  next?: Article;
+  related?: Article[];
+  /** Meta description when the article has no `description`. */
+  summary?: string;
+}
+
+const { article, headings, previous, next, related = [], summary } = Astro.props;
+const { title, description, date, updated, topics } = article.data;
+const hasToc = headings.some((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label');
+---
+
+<BaseLayout
+  title={title}
+  description={description ?? summary}
+  type="article"
+  article={{ published: date, modified: updated, tags: topics.map(topicTitle) }}
+>
+  <article class="container article">
+    <header class="article-header">
+      <h1>{title}</h1>
+      {description && <p class="description">{description}</p>}
+      <div class="meta">
+        <TopicTags topics={topics} />
+        <span class="dates">
+          <time datetime={date.toISOString()}>{formatDate(date)}</time>
+          {
+            updated && (
+              <>
+                {' · Updated '}
+                <time datetime={updated.toISOString()}>{formatDate(updated)}</time>
+              </>
+            )
+          }
+        </span>
+      </div>
+    </header>
+
+    <div class:list={['article-grid', { 'has-toc': hasToc }]}>
+      {
+        hasToc && (
+          <details class="toc-mobile">
+            <summary>Contents</summary>
+            <nav aria-label="Table of contents">
+              <TableOfContents headings={headings} />
+            </nav>
+          </details>
+        )
+      }
+
+      <div class="prose article-body">
+        <slot />
+      </div>
+
+      {
+        hasToc && (
+          <aside class="toc-desktop">
+            <nav aria-label="Table of contents">
+              <p class="eyebrow">On this page</p>
+              <TableOfContents headings={headings} />
+            </nav>
+          </aside>
+        )
+      }
+    </div>
+
+    <footer class="article-footer">
+      {
+        (previous || next) && (
+          <nav class="pagination" aria-label="Previous and next articles">
+            {previous ? (
+              <a class="prev" href={articleHref(previous)} rel="prev">
+                <span class="eyebrow">← Previous</span>
+                <span class="link-title">{previous.data.title}</span>
+              </a>
+            ) : (
+              <span />
+            )}
+            {next && (
+              <a class="next" href={articleHref(next)} rel="next">
+                <span class="eyebrow">Next →</span>
+                <span class="link-title">{next.data.title}</span>
+              </a>
+            )}
+          </nav>
+        )
+      }
+
+      {
+        related.length > 0 && (
+          <section class="related" aria-labelledby="related-heading">
+            <h2 id="related-heading" class="eyebrow">
+              Related
+            </h2>
+            <ul>
+              {related.map((r) => (
+                <li>
+                  <a href={articleHref(r)}>{r.data.title}</a>
+                  <TopicTags topics={r.data.topics} linked={false} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    </footer>
+  </article>
+</BaseLayout>
+
+<style>
+  .article {
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  .article-header,
+  .article-footer,
+  .article-body,
+  .toc-mobile {
+    max-width: var(--measure);
+  }
+
+  .article-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--step-3);
+    letter-spacing: -0.02em;
+  }
+
+  .description {
+    margin: 0.75rem 0 0;
+    font-family: var(--body);
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .dates {
+    font-size: 0.8125rem;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- Table of contents ------------------------------------------------ */
+
+  .toc-desktop {
+    display: none;
+  }
+
+  .toc-mobile {
+    margin-bottom: 2rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--sans);
+  }
+
+  .toc-mobile summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .toc-mobile[open] summary {
+    margin-bottom: 0.75rem;
+  }
+
+  .toc-mobile nav {
+    padding-left: 0.85rem;
+  }
+
+  @media (min-width: 64rem) {
+    .article-grid.has-toc {
+      display: grid;
+      grid-template-columns: minmax(0, var(--measure)) minmax(12rem, 15rem);
+      column-gap: clamp(3rem, 6vw, 5rem);
+      align-items: start;
+    }
+
+    .toc-mobile {
+      display: none;
+    }
+
+    .toc-desktop {
+      display: block;
+      position: sticky;
+      top: 2rem;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+      padding-left: 0.85rem;
+      font-family: var(--sans);
+    }
+
+    .toc-desktop .eyebrow {
+      margin: 0 0 0.9rem;
+    }
+  }
+
+  /* --- Footer: previous / next / related -------------------------------- */
+
+  .article-footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .pagination {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .pagination a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    text-decoration: none;
+  }
+
+  .pagination .next {
+    text-align: right;
+    grid-column: 2;
+  }
+
+  .link-title {
+    color: var(--text);
+    font-weight: 550;
+    line-height: 1.35;
+  }
+
+  .pagination a:hover .link-title {
+    color: var(--accent);
+  }
+
+  .related {
+    margin-top: 2.5rem;
+  }
+
+  .related h2 {
+    margin: 0 0 0.75rem;
+  }
+
+  .related ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .related li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    padding-block: 0.5rem;
+  }
+
+  .related a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .related a:hover {
+    color: var(--accent);
+  }
+
+  @media (max-width: 30rem) {
+    .pagination {
+      grid-template-columns: 1fr;
+    }
+
+    .pagination .next {
+      grid-column: 1;
+    }
+  }
+</style>
+
+<script>
+  // Copy buttons for code blocks.
+  for (const pre of document.querySelectorAll<HTMLPreElement>('.article-body pre')) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-wrapper';
+    pre.replaceWith(wrapper);
+    wrapper.append(pre);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'copy-button';
+    button.textContent = 'Copy';
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.querySelector('code')?.innerText ?? pre.innerText);
+        button.textContent = 'Copied';
+      } catch {
+        button.textContent = 'Failed';
+      }
+      setTimeout(() => (button.textContent = 'Copy'), 1500);
+    });
+    wrapper.append(button);
+  }
+
+  // Highlight the table-of-contents entry for the section currently being read.
+  const links = document.querySelectorAll<HTMLAnchorElement>('.toc-desktop [data-toc-link]');
+  if (links.length > 0) {
+    const headings = [...links]
+      .map((a) => document.getElementById(a.dataset.tocLink!))
+      .filter((h): h is HTMLElement => h !== null);
+
+    const update = () => {
+      const threshold = window.innerHeight * 0.25;
+      let current = headings[0];
+      for (const h of headings) {
+        if (h.getBoundingClientRect().top <= threshold) current = h;
+        else break;
+      }
+      for (const a of links) {
+        a.setAttribute('aria-current', String(a.dataset.tocLink === current?.id));
+      }
+    };
+
+    let ticking = false;
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          update();
+          ticking = false;
+        });
+      },
+      { passive: true },
+    );
+    update();
+  }
+</script>

@@ -1,0 +1,79 @@
+---
+import { Font } from 'astro:assets';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+import { SITE } from '@/site.config';
+import '@/styles/global.css';
+
+export interface Props {
+  /** Page title; the site name is appended automatically. Omit on the home page. */
+  title?: string;
+  description?: string;
+  /** Open Graph type. */
+  type?: 'website' | 'article';
+  /** Article metadata, emitted as article:* Open Graph tags. */
+  article?: {
+    published: Date;
+    modified?: Date;
+    tags?: string[];
+  };
+}
+
+const { title, description = SITE.description, type = 'website', article } = Astro.props;
+
+const fullTitle = title ? `${title} · ${SITE.title}` : SITE.title;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang={SITE.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      // Apply the saved theme before first paint. Light is the default.
+      try {
+        if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark';
+      } catch {}
+    </script>
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content={SITE.author} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <meta name="generator" content={Astro.generator} />
+
+    <meta property="og:type" content={type} />
+    <meta property="og:site_name" content={SITE.title} />
+    <meta property="og:title" content={title ?? SITE.title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+    {
+      article && (
+        <>
+          <meta property="article:published_time" content={article.published.toISOString()} />
+          {article.modified && (
+            <meta property="article:modified_time" content={article.modified.toISOString()} />
+          )}
+          <meta property="article:author" content={SITE.author} />
+          {article.tags?.map((tag) => <meta property="article:tag" content={tag} />)}
+        </>
+      )
+    }
+
+    <Font cssVariable="--font-serif" />
+    <Font cssVariable="--font-sans" preload />
+    <Font cssVariable="--font-mono" />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <Header />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

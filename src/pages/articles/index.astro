@@ -1,0 +1,61 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ArticleList from '@/components/ArticleList.astro';
+import { getArticles, type Article } from '@/lib/articles';
+
+const articles = await getArticles();
+
+const byYear = new Map<number, Article[]>();
+for (const a of articles) {
+  const year = a.data.date.getUTCFullYear();
+  byYear.set(year, [...(byYear.get(year) ?? []), a]);
+}
+---
+
+<BaseLayout title="Articles" description="All articles, newest first.">
+  <div class="container page">
+    <header class="page-header">
+      <h1>Articles</h1>
+      <p class="muted">{articles.length} {articles.length === 1 ? 'article' : 'articles'}, newest first.</p>
+    </header>
+
+    {
+      [...byYear].map(([year, list]) => (
+        <section class="year" aria-labelledby={`y${year}`}>
+          <h2 id={`y${year}`} class="eyebrow">
+            {year}
+          </h2>
+          <ArticleList articles={list} />
+        </section>
+      ))
+    }
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    max-width: calc(var(--measure) + 2 * var(--gutter));
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  .page-header {
+    margin-bottom: 2.5rem;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--step-3);
+  }
+
+  .page-header p {
+    margin: 0.5rem 0 0;
+  }
+
+  .year + .year {
+    margin-top: 2.5rem;
+  }
+
+  .year h2 {
+    margin: 0 0 0.25rem;
+  }
+</style>

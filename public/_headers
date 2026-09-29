@@ -1,0 +1,4 @@
+# Cloudflare Pages response headers.
+# Hashed build assets never change, so they can be cached forever.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
