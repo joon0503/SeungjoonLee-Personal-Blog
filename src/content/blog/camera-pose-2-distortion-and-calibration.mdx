@@ -1,0 +1,38 @@
+---
+title: 'Camera Models and Pose Estimation, Part 2: Distortion, Projection Models and Calibration'
+description: 'Lens distortion, alternative projection models, and calibrating a camera by minimizing reprojection error.'
+date: 2026-09-29
+topics: [computer-vision, robotics]
+draft: true
+---
+
+## Introduction
+
+{/* Recap Part 1; real lenses bend straight lines. */}
+
+## Lens distortion
+
+{/* Radial (barrel / pincushion) and tangential distortion.
+    Brown–Conrady model: k1, k2, k3, p1, p2 (OpenCV's default).
+    Distortion is applied in normalized coordinates, before K. */}
+
+## Projection models beyond the pinhole
+
+{/* Suggestion: fisheye / equidistant (Kannala–Brandt), unified / double-sphere models for wide FoV;
+    when each is appropriate; OpenCV fisheye module vs standard model. */}
+
+## Reprojection error
+
+{/* Definition: pixel distance between observed and projected points.
+    Why it is the natural cost (measured in the image, where the noise lives). RMS reprojection error as a quality metric. */}
+
+## Calibration
+
+{/* Zhang's method with a planar target: homographies → closed-form init → nonlinear refinement (Levenberg–Marquardt)
+    minimizing total reprojection error. Practical tips: coverage, tilt, number of views, target flatness. */}
+
+## Undistortion and rectification
+
+{/* Undistorting images vs undistorting points; new camera matrix / alpha trade-off. */}
+
+## Summary
