@@ -1,0 +1,36 @@
+---
+title: 'Camera Models and Pose Estimation, Part 3: Pose Estimation with ArUco and AprilTag'
+description: 'Estimating the 6-DoF pose of a fiducial marker from a single calibrated image.'
+date: 2026-09-29
+topics: [computer-vision, robotics]
+draft: true
+---
+
+## Introduction
+
+{/* Problem statement: known 3D points (marker corners) + calibrated camera → marker pose in camera frame. */}
+
+## Fiducial markers
+
+{/* ArUco vs AprilTag: dictionaries/families, detection pipeline, robustness, IDs.
+    Suggestion: when to use a board (ChArUco / tag grids) instead of a single tag. */}
+
+## Perspective-n-Point (PnP)
+
+{/* PnP formulation; planar case via homography decomposition; IPPE for squares.
+    Minimal solvers (P3P) vs iterative refinement. */}
+
+## Refining the pose: minimizing reprojection error
+
+{/* Nonlinear least squares over SE(3); connection back to Part 2. */}
+
+## Pitfalls
+
+{/* Planar pose ambiguity (flip) for small/far tags; corner accuracy vs tag size and distance;
+    motion blur; rolling shutter. Suggestion: show the two ambiguous solutions and their reprojection errors. */}
+
+## Code
+
+{/* OpenCV (cv2.aruco + solvePnP) and/or AprilTag library example. */}
+
+## Summary

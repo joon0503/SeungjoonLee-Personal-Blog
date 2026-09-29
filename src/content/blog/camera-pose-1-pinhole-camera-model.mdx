@@ -1,0 +1,44 @@
+---
+title: 'Camera Models and Pose Estimation, Part 1: The Pinhole Camera Model'
+description: 'From a 3D point to a pixel: homogeneous coordinates, intrinsics and extrinsics.'
+date: 2026-09-29
+topics: [computer-vision, robotics]
+draft: true
+---
+
+{/* Series outline
+  Part 1 — The pinhole camera model (this post)
+  Part 2 — Lens distortion, projection models, calibration and reprojection error
+  Part 3 — Pose estimation with ArUco and AprilTag
+  Part 4 — From pose estimation to manipulation policies
+*/}
+
+## Introduction
+
+{/* Motivation: why a robot needs a camera model. What this series covers. */}
+
+## The pinhole model
+
+{/* Perspective projection as similar triangles; x = f X / Z. Image plane in front of the pinhole. */}
+
+## Homogeneous coordinates
+
+{/* Why projective coordinates make projection linear; scale ambiguity; points at infinity. */}
+
+## Intrinsic parameters
+
+{/* K: focal lengths in pixels (f_x, f_y), principal point (c_x, c_y), skew.
+    Suggestion: relate f_x to physical focal length and pixel pitch; field of view from f and image width. */}
+
+## Extrinsic parameters
+
+{/* World → camera rigid transform (R, t) ∈ SE(3). Frame conventions (OpenCV: x right, y down, z forward).
+    Suggestion: a short note on camera-from-world vs world-from-camera naming, since it trips people up. */}
+
+## The full projection
+
+{/* λ [u, v, 1]^T = K [R | t] [X, 1]^T. The 3×4 projection matrix P. What is lost (depth). */}
+
+## Summary
+
+{/* Next: real lenses are not pinholes (Part 2). */}
