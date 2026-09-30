@@ -1,0 +1,24 @@
+---
+/**
+ * A numbered side note: an aside that does not belong in the main text.
+ *
+ *   The loss is convex<Sidenote>Only for a fixed network; see Section 3.</Sidenote> in the weights.
+ *
+ * Wide screens show the note in the right margin, level with the line that
+ * references it. Narrower screens show only the marker; tapping it expands
+ * the note in place (a checkbox toggle, so no JavaScript). Styles and
+ * numbering live in styles/global.css (Side notes) so they can line up with
+ * the article grid.
+ *
+ * Everything here is phrasing content, so a note can sit inside a paragraph.
+ */
+const id = `sn-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<span class="sidenote"
+  ><label class="sidenote-ref" for={id} aria-label="Side note"></label><input
+    type="checkbox"
+    id={id}
+    class="sidenote-toggle"
+  /><small class="sidenote-body" role="note"><slot /></small></span
+>

@@ -3,6 +3,16 @@ title: 'Likelihood function and Maximum Likelihood Estimation'
 date: 2024-10-13
 topics: [machine-learning]
 draft: false
+references:
+  wiki-likelihood:
+    title: Likelihood function
+    venue: Wikipedia
+    url: https://en.wikipedia.org/wiki/Likelihood_function
+  taboga-normal-mle:
+    author: M. Taboga
+    title: Normal distribution - Maximum Likelihood Estimation
+    venue: StatLect
+    url: https://www.statlect.com/fundamentals-of-statistics/normal-distribution-maximum-likelihood
 ---
 
 ## Introduction
@@ -23,7 +33,7 @@ Here, the $\mu$ and $\sigma$ are two parameters that changes the shape of the di
 
 ## Likelihood Function
 
-For the likelihood function, we now fix the _event_ and vary the _parameter_. Recall that this is reversing the role of the event and parameter compared to the probability function.
+For the likelihood function, we now fix the _event_ and vary the _parameter_. Recall that this is reversing the role of the event and parameter compared to the probability function [@wiki-likelihood].
 
 For example, given a single observed event $x$, the likelihood of normal distribution is given by
 
@@ -67,9 +77,4 @@ $$
 \mu^* = \frac{1}{k} \sum_{i=1}^k x_i, (\sigma^*)^2 = \frac{1}{k}\sum_{i=1}^k (x_k - \mu^*)^2,
 $$
 
-i.e., the sample mean and unadjusted sample variance.
-
-## References
-
-- [https://www.statlect.com/fundamentals-of-statistics/normal-distribution-maximum-likelihood](https://www.statlect.com/fundamentals-of-statistics/normal-distribution-maximum-likelihood)
-- [https://en.wikipedia.org/wiki/Likelihood\_function](https://en.wikipedia.org/wiki/Likelihood_function)
+i.e., the sample mean and unadjusted sample variance [@taboga-normal-mle].

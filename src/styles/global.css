@@ -29,7 +29,9 @@
   --body-leading: 1.65;
 
   --measure: 42rem; /* article text column, ~70 characters */
-  --page: 72rem; /* outer page width */
+  --note-width: 14rem; /* side-note column on wide screens */
+  --note-gap: 3rem;
+  --page: 80rem; /* outer page width (fits TOC + text + side notes on wide screens) */
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
 
   --step--1: 0.875rem;
@@ -208,6 +210,12 @@ hr {
   margin-top: 1.25em;
 }
 
+.prose p {
+  text-align: justify;
+  hyphens: auto;
+  text-wrap: pretty;
+}
+
 .prose p,
 .prose ul,
 .prose ol,
@@ -237,6 +245,256 @@ hr {
 .prose h3 + *,
 .prose h4 + * {
   margin-top: 0.75em;
+}
+
+/* Section numbers (1, 1.2, …), mirrored in TableOfContents.astro. Inline on
+   narrow screens; hung in the left margin once there is room for it. */
+.prose {
+  counter-reset: h2 sidenote;
+}
+
+.prose h2:not(.unnumbered, #footnote-label) {
+  counter-increment: h2;
+  counter-reset: h3;
+}
+
+.prose h3 {
+  counter-increment: h3;
+}
+
+.prose h2:not(.unnumbered, #footnote-label)::before,
+.prose h3::before {
+  margin-right: 0.6em;
+  font-family: var(--mono);
+  font-size: 0.6em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-faint);
+}
+
+.prose h2:not(.unnumbered, #footnote-label)::before {
+  content: counter(h2);
+}
+
+.prose h3::before {
+  content: counter(h2) '.' counter(h3);
+}
+
+@media (min-width: 80rem) {
+  .prose h2:not(.unnumbered, #footnote-label)::before,
+  .prose h3::before {
+    display: inline-block;
+    width: 4rem;
+    margin-left: -4rem;
+    margin-right: 0;
+    padding-right: 1.1rem;
+    text-align: right;
+  }
+}
+
+/* End-of-article mark (∎), flush right on the last line like a proof's QED. */
+.prose > p:last-of-type::after {
+  content: '';
+  float: right;
+  width: 0.5em;
+  height: 0.5em;
+  margin: 0.62em 0 0 1em;
+  background: var(--text-faint);
+}
+
+/* ==========================================================================
+   Citations and references (lib/remark-citations.mjs, lib/citations.ts)
+   ========================================================================== */
+
+.cite {
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.cite-link {
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.cite-link:hover,
+.cite-link:target {
+  text-decoration: underline;
+}
+
+.cite-link:target {
+  background: var(--selection);
+  border-radius: 2px;
+}
+
+.cite-missing {
+  color: var(--text-faint);
+}
+
+.prose ol.references {
+  padding: 0;
+  list-style: none;
+  font-size: 0.875em;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.references li {
+  display: grid;
+  grid-template-columns: 2.4em minmax(0, 1fr) auto;
+  column-gap: 0.4em;
+  padding: 0.3em 0.5em;
+  margin-inline: -0.5em;
+  border-radius: 4px;
+  transition: background-color 600ms;
+}
+
+.references li + li {
+  margin-top: 0.35em;
+}
+
+.references li:target {
+  background: var(--bg-subtle);
+  transition: none;
+}
+
+.ref-label {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.ref-title {
+  color: var(--text);
+}
+
+a.ref-title {
+  text-decoration: none;
+}
+
+a.ref-title:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.ref-back {
+  align-self: start;
+  padding: 0 0.25em;
+  text-decoration: none;
+  color: var(--text-faint);
+}
+
+.ref-back:hover {
+  color: var(--accent);
+}
+
+/* Hover preview for citations; one shared element positioned by script. */
+.cite-popover {
+  position: absolute;
+  z-index: 20;
+  max-width: min(26rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.85rem;
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px -8px rgb(0 0 0 / 0.18);
+  opacity: 0;
+  transform: translateY(2px);
+  transition:
+    opacity 120ms,
+    transform 120ms;
+  pointer-events: none;
+}
+
+.cite-popover[data-open] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.cite-popover .ref-label {
+  margin-right: 0.4em;
+}
+
+.cite-popover .popover-jump {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  text-decoration: none;
+}
+
+.cite-popover .popover-jump:hover {
+  color: var(--accent);
+}
+
+/* ==========================================================================
+   Side notes (components/Sidenote.astro)
+   ========================================================================== */
+
+.sidenote {
+  counter-increment: sidenote;
+}
+
+.sidenote-ref::after {
+  content: counter(sidenote);
+  margin-left: 0.1em;
+  font-family: var(--sans);
+  font-size: 0.7em;
+  font-weight: 600;
+  line-height: 0;
+  vertical-align: super;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.sidenote-toggle {
+  display: none;
+}
+
+.sidenote-body {
+  display: none;
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: left;
+  hyphens: manual;
+  color: var(--text-muted);
+}
+
+.sidenote-body::before {
+  content: counter(sidenote);
+  margin-right: 0.45em;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Narrow: tap the number to open the note beneath the line. */
+.sidenote-toggle:checked + .sidenote-body {
+  display: block;
+  margin: 0.6rem 0 0.8rem;
+  padding: 0.1rem 0 0.1rem 0.85rem;
+  border-left: 2px solid var(--border-strong);
+}
+
+/* Wide: the note sits in the right margin, level with its marker. */
+@media (min-width: 80rem) {
+  .sidenote-ref::after {
+    cursor: default;
+  }
+
+  .sidenote-body,
+  .sidenote-toggle:checked + .sidenote-body {
+    display: block;
+    float: right;
+    clear: right;
+    width: var(--note-width);
+    margin: 0.3rem calc(-1 * (var(--note-width) + var(--note-gap))) 0.9rem 0;
+    padding: 0;
+    border: 0;
+  }
 }
 
 .prose ul,

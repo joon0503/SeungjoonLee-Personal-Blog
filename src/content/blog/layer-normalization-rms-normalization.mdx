@@ -4,6 +4,54 @@ date: 2025-07-20
 updated: 2025-08-10
 topics: [machine-learning]
 draft: false
+references:
+  vaswani2017:
+    author: [A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, I. Polosukhin]
+    title: Attention Is All You Need
+    venue: Advances in Neural Information Processing Systems
+    year: 2017
+    url: https://arxiv.org/abs/1706.03762
+  ba2016:
+    author: [J. L. Ba, J. R. Kiros, G. E. Hinton]
+    title: Layer Normalization
+    venue: arXiv preprint arXiv:1607.06450
+    year: 2016
+    url: https://arxiv.org/abs/1607.06450
+  zhang2019:
+    author: [B. Zhang, R. Sennrich]
+    title: Root Mean Square Layer Normalization
+    venue: Advances in Neural Information Processing Systems
+    year: 2019
+    url: https://arxiv.org/abs/1910.07467
+  xiong2020:
+    author: [R. Xiong, Y. Yang, D. He, K. Zheng, S. Zheng, C. Xing, H. Zhang, Y. Lan, L. Wang, T. Liu]
+    title: On Layer Normalization in the Transformer Architecture
+    venue: International Conference on Machine Learning
+    year: 2020
+    url: https://arxiv.org/abs/2002.04745
+  tam-layernorm-rmsnorm:
+    author: A. Tam
+    title: LayerNorm and RMS Norm in Transformer Models
+    venue: Machine Learning Mastery
+    url: https://machinelearningmastery.com/layernorm-and-rms-norm-in-transformer-models/
+  karpathy-llmc-layernorm:
+    author: A. Karpathy
+    title: LayerNorm
+    venue: llm.c documentation, GitHub
+    url: https://github.com/karpathy/llm.c/blob/master/doc/layernorm/layernorm.md
+  annotated-transformer:
+    author: [A. Huang, S. Subramanian, J. Sum, K. Almubarak, S. Biderman, S. Rush]
+    title: The Annotated Transformer
+    venue: Harvard NLP
+    year: 2022
+    url: https://nlp.seas.harvard.edu/annotated-transformer/
+  codeemporium-layernorm:
+    author: CodeEmporium
+    title: Layer Normalization - EXPLAINED (in Transformer Neural Networks)
+    venue: YouTube
+    url: https://www.youtube.com/watch?v=G45TuC6zRf4
+# Further reading, listed in References without an in-text citation.
+nocite: [tam-layernorm-rmsnorm, karpathy-llmc-layernorm, annotated-transformer, codeemporium-layernorm]
 ---
 
 ## Introduction
@@ -12,7 +60,7 @@ In effort to have deeper understanding of the recent advancements in the machine
 
 ## Transformer Architecture
 
-In the famous [Attention is all you need](https://arxiv.org/pdf/1706.03762) paper, we can see the basic architecture of the transformer given by the following figure.
+In the famous _Attention is all you need_ paper [@vaswani2017], we can see the basic architecture of the transformer given by the following figure.
 
 <Figure
   src="/images/layer-normalization-rms-normalization/transformer-architecture.png"
@@ -37,7 +85,7 @@ The role of the normalization function is the scale and shift the input values t
 
 ## Layer Normalization
 
-Layer normalization is proposed in the paper [Layer Normalization](https://arxiv.org/pdf/1607.06450). Given an input vector $x$, the layer normalization performs
+Layer normalization is proposed in the paper _Layer Normalization_ [@ba2016]. Given an input vector $x$, the layer normalization performs
 
 $$
 y=\frac{x - \mathbb{E}(x)}{\sqrt{{\mathrm{Var}}(x) + \epsilon}} \cdot \gamma + \beta
@@ -51,7 +99,7 @@ In PyTorch, layer normalization is implemented as **LayerNorm** and its document
 
 ## RMS Normalization
 
-RMS Normalization is proposed in the paper [Root Mean Square Layer Normalization](https://arxiv.org/pdf/1910.07467). Given an input vector $x \in \mathbb{R}^n$, the RMS Normalization performs
+RMS Normalization is proposed in the paper _Root Mean Square Layer Normalization_ [@zhang2019]. Given an input vector $x \in \mathbb{R}^n$, the RMS Normalization performs
 
 $$
 y=\frac{x}{\mathrm{RMS}(x)} \cdot \gamma, \quad \mathrm{RMS}(x) = \sqrt{\epsilon + \frac{1}{n} \sum_{i=1}^n x_i}
@@ -114,15 +162,8 @@ However, notice that the modern usage of layer normalization deviates from simpl
 
 ## Back to transformer architecture
 
-My interest for normalization initially started while studying the transformer architecture. Although normalization looks simple and rather naive, its role and placement within the transformer architecture has been studied extensively. One notable question is _**where should we put the normalization?**_ This question is discussed in the paper [On Layer Normalization in the Transformer Architecture](https://arxiv.org/pdf/2002.04745), which proposes variations of the transformer architecture based on the position of the normalization layer. Interested readers can refer to the paper, and my own discussion will be done in the separate post.
+My interest for normalization initially started while studying the transformer architecture. Although normalization looks simple and rather naive, its role and placement within the transformer architecture has been studied extensively. One notable question is _**where should we put the normalization?**_ This question is discussed in the paper _On Layer Normalization in the Transformer Architecture_ [@xiong2020], which proposes variations of the transformer architecture based on the position of the normalization layer. Interested readers can refer to the paper, and my own discussion will be done in the separate post.
 
 ## Conclusion
 
 We have discussed two techniques for applying normalization. However, pytorch has more types of normalization (see [normalization-layers](https://docs.pytorch.org/docs/stable/nn.html#normalization-layers) for full list). Perhaps I will touch on those later.
-
-## Additional References
-
-- [https://machinelearningmastery.com/layernorm-and-rms-norm-in-transformer-models/](https://machinelearningmastery.com/layernorm-and-rms-norm-in-transformer-models/)
-- [https://github.com/karpathy/llm.c/blob/master/doc/layernorm/layernorm.md](https://github.com/karpathy/llm.c/blob/master/doc/layernorm/layernorm.md)
-- [https://nlp.seas.harvard.edu/annotated-transformer/](https://nlp.seas.harvard.edu/annotated-transformer/)
-- [https://www.youtube.com/watch?v=G45TuC6zRf4](https://www.youtube.com/watch?v=G45TuC6zRf4)

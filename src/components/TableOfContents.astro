@@ -10,13 +10,15 @@ export interface Props {
 const { headings, maxDepth = 3 } = Astro.props;
 // `footnote-label` is the (visually hidden) heading GFM adds above footnotes.
 const items = headings.filter((h) => h.depth >= 2 && h.depth <= maxDepth && h.slug !== 'footnote-label');
+// Back matter added by lib/remark-citations.mjs; unnumbered, like in a paper.
+const UNNUMBERED = new Set(['references']);
 ---
 
 {
   items.length > 0 && (
     <ol class="toc">
       {items.map((h) => (
-        <li class:list={[`depth-${h.depth}`]}>
+        <li class:list={[`depth-${h.depth}`, { unnumbered: UNNUMBERED.has(h.slug) }]}>
           <a href={`#${h.slug}`} data-toc-link={h.slug}>
             {h.text}
           </a>
@@ -31,6 +33,7 @@ const items = headings.filter((h) => h.depth >= 2 && h.depth <= maxDepth && h.sl
     margin: 0;
     padding: 0;
     list-style: none;
+    counter-reset: toc-h2;
     font-size: 0.8125rem;
     line-height: 1.45;
   }
@@ -43,8 +46,40 @@ const items = headings.filter((h) => h.depth >= 2 && h.depth <= maxDepth && h.sl
     padding-left: 0.85rem;
   }
 
+  /* Section numbers, matching the ones on the headings (global.css). */
+  .depth-2:not(.unnumbered) {
+    counter-increment: toc-h2;
+    counter-reset: toc-h3;
+  }
+
+  .depth-3 {
+    counter-increment: toc-h3;
+  }
+
+  a::before {
+    flex: none;
+    min-width: 1.4rem;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--text-faint);
+  }
+
+  .depth-2 a::before {
+    content: counter(toc-h2);
+  }
+
+  .unnumbered a::before {
+    content: '';
+  }
+
+  .depth-3 a::before {
+    content: counter(toc-h2) '.' counter(toc-h3);
+    min-width: 1.9rem;
+  }
+
   a {
-    display: block;
+    display: flex;
+    align-items: baseline;
     color: var(--text-muted);
     text-decoration: none;
     border-left: 2px solid transparent;

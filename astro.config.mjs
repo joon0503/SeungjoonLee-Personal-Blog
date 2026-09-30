@@ -5,6 +5,7 @@ import sitemap from '@astrojs/sitemap';
 import { unified } from '@astrojs/markdown-remark';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import remarkCitations from './src/lib/remark-citations.mjs';
 
 export default defineConfig({
   // Production URL. Used for canonical links, Open Graph URLs and the sitemap.
@@ -15,9 +16,10 @@ export default defineConfig({
 
   markdown: {
     // remark-math parses $...$ and $$...$$; rehype-katex renders them to HTML at build time,
-    // so no math JavaScript is shipped to the browser. MDX inherits this processor.
+    // so no math JavaScript is shipped to the browser. remark-citations turns [@key] into
+    // numbered citations and appends the References section. MDX inherits this processor.
     processor: unified({
-      remarkPlugins: [remarkMath],
+      remarkPlugins: [remarkMath, remarkCitations],
       rehypePlugins: [rehypeKatex],
     }),
     shikiConfig: {
