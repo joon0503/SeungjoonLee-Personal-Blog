@@ -221,6 +221,34 @@ const hasToc = headings.some((h) => (h.depth === 2 || h.depth === 3) && h.slug !
     }
   }
 
+  /* Wide: contents on the left, text in the middle, side notes on the right
+     (the notes float out of the text column; see Side notes in global.css). */
+  @media (min-width: 80rem) {
+    .article-grid,
+    .article-grid.has-toc {
+      display: grid;
+      grid-template-columns: 12rem 4rem minmax(0, var(--measure)) var(--note-gap) var(--note-width);
+      column-gap: 0;
+      align-items: start;
+    }
+
+    .article-body {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    .toc-desktop {
+      grid-column: 1;
+      grid-row: 1;
+      padding-left: 0.85rem;
+    }
+
+    .article-header,
+    .article-footer {
+      margin-left: 16rem;
+    }
+  }
+
   /* --- Footer: previous / next / related -------------------------------- */
 
   .article-footer {
@@ -301,6 +329,10 @@ const hasToc = headings.some((h) => (h.depth === 2 || h.depth === 3) && h.slug !
 </style>
 
 <script>
+  import { initCitations } from '@/lib/citations';
+
+  initCitations();
+
   // Copy buttons for code blocks.
   for (const pre of document.querySelectorAll<HTMLPreElement>('.article-body pre')) {
     const wrapper = document.createElement('div');
