@@ -3,6 +3,13 @@ title: 'Fixing auto-complete and missing attribute error for MUJOCO (python) in 
 date: 2025-05-06
 topics: [robotics]
 draft: false
+references:
+  mujoco1292:
+    author: A. Galstyan
+    title: Python Types are missing :(
+    venue: "google-deepmind/mujoco, GitHub issue #1292"
+    year: 2023
+    url: https://github.com/google-deepmind/mujoco/issues/1292
 ---
 
 ## Issue
@@ -25,13 +32,11 @@ One issue I faced when trying to use `mujoco` in python is that it does not prov
   height={108}
 />
 
-After some searches, I found out that this is a known issue.
-
-[https://github.com/google-deepmind/mujoco/issues/1292](https://github.com/google-deepmind/mujoco/issues/1292)
+After some searches, I found out that this is a known issue [@mujoco1292].
 
 ## Solution
 
-A work-around solution is provided in the link above, but had to be modified a bit to fit my environment.
+A work-around solution is provided in the issue [@mujoco1292], but had to be modified a bit to fit my environment.
 
 1. `uv add pybind11-stubgen`
 2. `uv run pybind11-stubgen mujoco -o ./typings` to create stub files for mujoco

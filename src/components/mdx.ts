@@ -7,8 +7,10 @@
  */
 import Figure from './Figure.astro';
 import PhasePortrait from './interactive/PhasePortrait.astro';
+import Sidenote from './Sidenote.astro';
 
 export const mdxComponents = {
   Figure,
   PhasePortrait,
+  Sidenote,
 };
