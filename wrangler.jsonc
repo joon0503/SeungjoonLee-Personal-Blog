@@ -9,5 +9,8 @@
     "html_handling": "auto-trailing-slash",
     // Unknown URLs get dist/404.html with a 404 status.
     "not_found_handling": "404-page"
-  }
+  },
+  // Required by `wrangler preview`, the deploy command Cloudflare runs for
+  // non-production branches (PR previews). Empty: previews reuse the settings above.
+  "previews": {}
 }
