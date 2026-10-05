@@ -1,5 +1,5 @@
 /**
- * Numbered citations, LaTeX style.
+ * Numbered citations and figure cross-references, LaTeX style.
  *
  * In the article body, cite with pandoc-like keys:
  *
@@ -22,7 +22,32 @@
  * numbered after the cited ones. A "References" section is appended to the end of the article, with
  * a back link from each entry to the citation. The hover preview and the
  * "back to where I was" behaviour are added client-side (lib/citations.ts).
+ *
+ * Figures are numbered in document order: every <Figure> and every component
+ * in components/interactive/ (each renders a Figure) gets a `number` prop,
+ * which Figure.astro shows as "Figure 1." in the caption. Give a figure an
+ * `id` to refer to it, pandoc-crossref style:
+ *
+ *   <Figure id="transformer" src="..." alt="..." caption="..." />
+ *   ... the architecture in [@fig:transformer] ...       → Fig. 1
+ *   ... compare [@fig:a; @fig:b] ...                       → Figs. 1 and 2
+ *
+ * (A component added to components/interactive/ is picked up on the next
+ * dev-server start.)
  */
+
+import { readdirSync } from 'node:fs';
+import { basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** Names of the MDX components that render a numbered figure. */
+const FIGURES = new Set([
+  'Figure',
+  ...readdirSync(fileURLToPath(new URL('../components/interactive/', import.meta.url)), { recursive: true })
+    .map(String)
+    .filter((f) => f.endsWith('.astro'))
+    .map((f) => basename(f, '.astro')),
+]);
 
 const CITE = /\[(@[\w:.-]+(?:\s*[;,]\s*@[\w:.-]+)*)\]/g;
 const SKIP = new Set(['code', 'inlineCode', 'math', 'inlineMath', 'link', 'linkReference', 'heading', 'html']);
@@ -73,6 +98,55 @@ export default function remarkCitations() {
     /** @type {Map<string, number>} key → how many times cited so far */
     const uses = new Map();
 
+    // Pass 1: number the figures, so references to later figures resolve too.
+    /** @type {Map<string, number>} figure id → figure number */
+    const figures = new Map();
+    let figureCount = 0;
+    const numberFigures = (node) => {
+      for (const child of node.children ?? []) {
+        if (child.type === 'mdxJsxFlowElement' && FIGURES.has(child.name)) {
+          figureCount += 1;
+          child.attributes.push({ type: 'mdxJsxAttribute', name: 'number', value: String(figureCount) });
+          const id = child.attributes.find((a) => a.name === 'id' && typeof a.value === 'string')?.value;
+          if (id) figures.set(id, figureCount);
+        } else {
+          numberFigures(child);
+        }
+      }
+    };
+    numberFigures(tree);
+
+    /** "Fig. 1", "Figs. 1 and 2", "Figs. 1, 2, and 3"; each number links to its figure. */
+    const figureRef = (labels) => {
+      const links = labels.map((label) => {
+        const n = figures.get(label);
+        if (n === undefined) {
+          console.warn(`[citations] ${file.path ?? ''}: unknown figure "@fig:${label}"`);
+          return h('span', { className: ['cite-missing'], title: `Unknown figure: ${label}` }, [t('?')]);
+        }
+        const use = (uses.get(`fig:${label}`) ?? 0) + 1;
+        uses.set(`fig:${label}`, use);
+        return h('a', { href: `#fig-${label}`, id: `figref-${label}-${use}`, className: ['fig-link'], dataFig: label }, [
+          t(String(n)),
+        ]);
+      });
+      const children = [];
+      if (links.length === 1) {
+        // A single reference links the whole "Fig. N".
+        const [link] = links;
+        if (link.tagName === 'a') link.children = [t(`Fig.\u00a0${link.children[0].value}`)];
+        else children.push(t('Fig.\u00a0'));
+        children.push(link);
+      } else {
+        children.push(t('Figs.\u00a0'));
+        links.forEach((link, i) => {
+          if (i > 0) children.push(t(i === links.length - 1 ? (links.length > 2 ? ', and ' : ' and ') : ', '));
+          children.push(link);
+        });
+      }
+      return { type: 'figureRef', data: { hName: 'span', hProperties: { className: ['xref'] }, hChildren: children } };
+    };
+
     const citeNode = (keys) => {
       const children = [t('[')];
       keys.forEach((key, i) => {
@@ -108,7 +182,11 @@ export default function remarkCitations() {
         for (const match of child.value.matchAll(CITE)) {
           if (match.index > last) next.push(t(child.value.slice(last, match.index)));
           const keys = match[1].split(/[;,]/).map((k) => k.trim().replace(/^@/, ''));
-          next.push(citeNode(keys));
+          const figs = keys.filter((k) => k.startsWith('fig:')).map((k) => k.slice(4));
+          const works = keys.filter((k) => !k.startsWith('fig:'));
+          if (figs.length > 0) next.push(figureRef(figs));
+          if (figs.length > 0 && works.length > 0) next.push(t(' '));
+          if (works.length > 0) next.push(citeNode(works));
           last = match.index + match[0].length;
         }
         if (last < child.value.length) next.push(t(child.value.slice(last)));
