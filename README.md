@@ -102,7 +102,9 @@ Connect the GitHub repository under **Workers & Pages → Create → Import a re
 | Build command   | `npm run build`     |
 | Deploy command  | `npx wrangler deploy` |
 
-Every push to `main` deploys; pushes to other branches get preview URLs (if enabled).
+Every push to `main` deploys; pushes to other branches get preview URLs (if enabled). Preview
+builds run `npx wrangler preview`, which needs the (empty) `previews` block in `wrangler.jsonc`.
+The build command must be set too: without it the deploy step finds no `dist/`.
 
 Manual deploy from this machine: `npm run build && npx wrangler login && npx wrangler deploy`.
 

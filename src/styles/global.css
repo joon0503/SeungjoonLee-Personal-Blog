@@ -292,8 +292,10 @@ hr {
   }
 }
 
-/* End-of-article mark (∎), flush right on the last line like a proof's QED. */
-.prose > p:last-of-type::after {
+/* End-of-article mark (∎), flush right on the last line like a proof's QED.
+   Only when a paragraph ends the article: nothing may follow it except back
+   matter (References, footnotes). */
+.prose > p:not(:has(~ :not(h2.unnumbered, ol.references, .footnotes)))::after {
   content: '';
   float: right;
   width: 0.5em;
@@ -416,6 +418,40 @@ a.ref-title:hover {
 
 .cite-popover .ref-label {
   margin-right: 0.4em;
+}
+
+.cite-popover .popover-img {
+  display: block;
+  max-width: 100%;
+  max-height: 11rem;
+  width: auto;
+  height: auto;
+  margin: 0 auto 0.5rem;
+}
+
+.cite-popover .popover-caption .fig-label {
+  margin-right: 0.35em;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Figure references in the text ("Fig. 1"). */
+.xref {
+  white-space: nowrap;
+}
+
+.fig-link {
+  text-decoration: none;
+}
+
+.fig-link:hover,
+.fig-link:target {
+  text-decoration: underline;
+}
+
+.fig-link:target {
+  background: var(--selection);
+  border-radius: 2px;
 }
 
 .cite-popover .popover-jump {

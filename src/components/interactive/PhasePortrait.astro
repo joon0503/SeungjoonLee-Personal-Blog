@@ -16,16 +16,21 @@ export interface Props {
   zeta?: number;
   omega?: number;
   caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
 }
 
 const {
   zeta = 0.3,
   omega = 1,
   caption = 'Phase portrait of ẍ + 2ζωẋ + ω²x = 0. Drag the sliders; click the plot to start a new trajectory.',
+  id,
+  number,
 } = Astro.props;
 ---
 
-<Figure caption={caption} class="interactive-figure">
+<Figure caption={caption} id={id} number={number} class="interactive-figure">
   <phase-portrait class="phase-portrait" data-zeta={zeta} data-omega={omega}>
     <div class="plot">
       <svg
