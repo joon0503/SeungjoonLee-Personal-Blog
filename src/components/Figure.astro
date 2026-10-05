@@ -1,33 +1,43 @@
 ---
 /**
- * A figure with an optional caption.
+ * A numbered figure with an optional caption.
  *
- *   <Figure src="/figures/lqr/cost.svg" alt="Level sets of the LQR cost" caption="..." />
+ *   <Figure id="lqr-cost" src="/figures/lqr/cost.svg" alt="Level sets of the LQR cost" caption="..." />
  *
- * or wrap arbitrary content (an interactive component, an inline SVG, ...):
+ * or wrap arbitrary content (an inline SVG, a table, ...):
  *
- *   <Figure caption="Closed-loop trajectories.">
- *     <PhasePortrait />
- *   </Figure>
+ *   <Figure caption="Closed-loop trajectories.">...</Figure>
+ *
+ * In MDX, `number` is filled in by lib/remark-citations.mjs (figures are
+ * numbered in document order) and shown as "Figure N." in the caption. With
+ * an `id`, the text can refer to the figure as [@fig:lqr-cost] → "Fig. N".
+ * Interactive figures (components/interactive/) accept `id` and `number` too
+ * and pass them through to this component.
  */
 type Props = {
   caption?: string;
   class?: string;
+  /** Label for cross-references; the element id becomes `fig-<id>`. */
+  id?: string;
+  /** Set by the remark plugin; do not pass by hand. */
+  number?: number | string;
 } & (
   | { src: string; alt: string; width?: number; height?: number }
   | { src?: undefined; alt?: undefined; width?: undefined; height?: undefined }
 );
 
-const { src, alt, width, height, caption, class: className } = Astro.props;
+const { src, alt, width, height, caption, class: className, id, number } = Astro.props;
 const hasCaption = caption !== undefined || Astro.slots.has('caption');
 ---
 
-<figure class:list={['figure', className]}>
+<figure class:list={['figure', className]} id={id ? `fig-${id}` : undefined}>
   {src ? <img src={src} alt={alt} width={width} height={height} loading="lazy" decoding="async" /> : <slot />}
   {
-    hasCaption && (
+    (hasCaption || number !== undefined) && (
       <figcaption>
+        {number !== undefined && <span class="fig-label">Figure {number}.</span>}
         <slot name="caption">{caption}</slot>
+        {id && <a class="fig-back" aria-label="Back to the text">↩</a>}
       </figcaption>
     )
   }
@@ -43,13 +53,39 @@ const hasCaption = caption !== undefined || Astro.slots.has('caption');
     margin-inline: auto;
   }
 
+  /* LaTeX-style: a one-line caption is centered, a longer one is set as a
+     left-aligned block (the box shrinks to its text, then centers). */
   figcaption {
-    margin-top: 0.75rem;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0.75rem auto 0;
     font-family: var(--sans);
     font-size: 0.8125rem;
     line-height: 1.5;
     color: var(--text-muted);
-    text-align: center;
+    text-align: left;
     text-wrap: pretty;
+  }
+
+  .fig-label {
+    margin-right: 0.35em;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* Shown after jumping here from a "Fig. N" link; lib/citations.ts sets the href. */
+  .fig-back {
+    display: none;
+    margin-left: 0.4em;
+    text-decoration: none;
+    color: var(--text-faint);
+  }
+
+  .fig-back:hover {
+    color: var(--accent);
+  }
+
+  .figure:target .fig-back[href] {
+    display: inline;
   }
 </style>

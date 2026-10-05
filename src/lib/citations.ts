@@ -7,13 +7,17 @@
  *     reference list); a second tap follows the link.
  *   - After jumping to the reference list, the entry's ↩ link returns to the
  *     exact citation the reader came from, not just the first one.
+ *
+ * Figure references ("Fig. 1") behave the same way: the popover previews the
+ * figure (image and caption), and after jumping to a figure its caption shows
+ * a ↩ link back to the text.
  */
 
 const OPEN_DELAY = 120;
 const CLOSE_DELAY = 180;
 
 export function initCitations(root: ParentNode = document): void {
-  const links = [...root.querySelectorAll<HTMLAnchorElement>('a.cite-link')];
+  const links = [...root.querySelectorAll<HTMLAnchorElement>('a.cite-link, a.fig-link')];
   if (links.length === 0) return;
 
   const popover = document.createElement('div');
@@ -26,21 +30,45 @@ export function initCitations(root: ParentNode = document): void {
   let openTimer = 0;
   let closeTimer = 0;
 
-  const entryFor = (link: HTMLAnchorElement) => document.getElementById(`ref-${link.dataset.ref}`);
+  const isFigure = (link: HTMLAnchorElement) => link.classList.contains('fig-link');
+  const entryFor = (link: HTMLAnchorElement) =>
+    document.getElementById(isFigure(link) ? `fig-${link.dataset.fig}` : `ref-${link.dataset.ref}`);
+
+  /** Popover content: the reference entry, or a figure's image and caption. */
+  function previewOf(link: HTMLAnchorElement, entry: HTMLElement): Node[] {
+    if (!isFigure(link)) {
+      return [entry.querySelector('.ref-label'), entry.querySelector('.ref-body')]
+        .filter((n): n is Element => !!n)
+        .map((n) => n.cloneNode(true));
+    }
+    const nodes: Node[] = [];
+    const img = entry.querySelector(':scope > img');
+    if (img) {
+      const thumb = img.cloneNode(true) as HTMLImageElement;
+      thumb.className = 'popover-img';
+      thumb.removeAttribute('loading');
+      nodes.push(thumb);
+    }
+    const caption = entry.querySelector('figcaption')?.cloneNode(true) as HTMLElement | undefined;
+    if (caption) {
+      caption.querySelector('.fig-back')?.remove();
+      caption.className = 'popover-caption';
+      nodes.push(caption);
+    }
+    return nodes;
+  }
 
   function show(link: HTMLAnchorElement, withJump = false) {
     const entry = entryFor(link);
     if (!entry) return;
     clearTimeout(closeTimer);
 
-    const label = entry.querySelector('.ref-label')?.cloneNode(true);
-    const body = entry.querySelector('.ref-body')?.cloneNode(true);
-    popover.replaceChildren(...[label, body].filter((n): n is Node => !!n));
+    popover.replaceChildren(...previewOf(link, entry));
     if (withJump) {
       const jump = document.createElement('a');
       jump.className = 'popover-jump';
       jump.href = link.getAttribute('href')!;
-      jump.textContent = 'Go to references ↓';
+      jump.textContent = isFigure(link) ? 'Go to figure ↓' : 'Go to references ↓';
       jump.addEventListener('click', () => rememberOrigin(link));
       popover.append(jump);
     }
@@ -76,9 +104,9 @@ export function initCitations(root: ParentNode = document): void {
     closeTimer = window.setTimeout(hide, CLOSE_DELAY);
   };
 
-  /** Point the reference's ↩ link back at the citation the reader used. */
+  /** Point the reference's (or figure's) ↩ link back at the citation the reader used. */
   function rememberOrigin(link: HTMLAnchorElement) {
-    const back = entryFor(link)?.querySelector<HTMLAnchorElement>('.ref-back');
+    const back = entryFor(link)?.querySelector<HTMLAnchorElement>('.ref-back, .fig-back');
     if (back) back.href = `#${link.id}`;
   }
 
@@ -115,7 +143,7 @@ export function initCitations(root: ParentNode = document): void {
     if (e.key === 'Escape') hide();
   });
   document.addEventListener('pointerdown', (e) => {
-    if (current && !popover.contains(e.target as Node) && !(e.target as Element).closest?.('a.cite-link')) hide();
+    if (current && !popover.contains(e.target as Node) && !(e.target as Element).closest?.('a.cite-link, a.fig-link')) hide();
   });
   window.addEventListener('resize', hide);
 }
