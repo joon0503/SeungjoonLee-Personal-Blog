@@ -32,6 +32,9 @@
  *   ... the architecture in [@fig:transformer] ...       → Fig. 1
  *   ... compare [@fig:a; @fig:b] ...                       → Figs. 1 and 2
  *
+ * Figure references also work inside a `caption` attribute, where they
+ * become plain text ("Fig. 2"), since a caption string cannot hold a link.
+ *
  * (A component added to components/interactive/ is picked up on the next
  * dev-server start.)
  */
@@ -115,6 +118,33 @@ export default function remarkCitations() {
       }
     };
     numberFigures(tree);
+
+    /** "Fig. 1" / "Figs. 1 and 2" as plain text, for caption strings. */
+    const figureText = (labels) => {
+      const ns = labels.map((label) => {
+        if (figures.has(label)) return String(figures.get(label));
+        console.warn(`[citations] ${file.path ?? ''}: unknown figure "@fig:${label}" in a caption`);
+        return '?';
+      });
+      if (ns.length === 1) return `Fig.\u00a0${ns[0]}`;
+      const last = ns.pop();
+      return `Figs.\u00a0${ns.join(', ')}${ns.length > 1 ? ',' : ''} and ${last}`;
+    };
+    const resolveCaptions = (node) => {
+      for (const child of node.children ?? []) {
+        if (child.type === 'mdxJsxFlowElement' && FIGURES.has(child.name)) {
+          for (const attr of child.attributes) {
+            if (attr.name !== 'caption' || typeof attr.value !== 'string') continue;
+            attr.value = attr.value.replace(CITE, (match, list) => {
+              const keys = list.split(/[;,]/).map((k) => k.trim().replace(/^@/, ''));
+              return keys.every((k) => k.startsWith('fig:')) ? figureText(keys.map((k) => k.slice(4))) : match;
+            });
+          }
+        }
+        resolveCaptions(child);
+      }
+    };
+    resolveCaptions(tree);
 
     /** "Fig. 1", "Figs. 1 and 2", "Figs. 1, 2, and 3"; each number links to its figure. */
     const figureRef = (labels) => {
