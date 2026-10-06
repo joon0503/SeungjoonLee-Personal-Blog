@@ -42,8 +42,119 @@ $$
 - Don't add an `# H1` — the layout renders the title. Start sections at `##`; `##`/`###` feed the table of contents.
 - `topics` must be ids from `src/lib/topics.ts`. Add a topic there (id, title, description) and its page appears automatically.
 - Images/figures go in `public/figures/<article>/` and are used via `<Figure src="/figures/..." alt="..." caption="..." />`
-  (or plain Markdown `![alt](/figures/...)`).
+  (plain Markdown `![alt](/figures/...)` also works, but is not numbered).
 - In MDX, `{` `}` and `<` outside math and code are JSX syntax — escape them (`\{`) in prose.
+
+## Writing reference
+
+Everything below works in any `.mdx` article without an import.
+
+| Want                          | Write                                                        | Renders as                             |
+| ----------------------------- | ------------------------------------------------------------ | -------------------------------------- |
+| Highlight a phrase            | `<mark>key phrase</mark>`                                    | amber highlighter stroke               |
+| Key idea / definition block   | `<Callout label="Definition" title="…">…</Callout>`          | tinted block with a small label        |
+| Aside in the margin           | `text<Sidenote>note</Sidenote> more text`                    | numbered note in the right margin      |
+| Numbered figure               | `<Figure id="arch" src="…" alt="…" caption="…" />`           | "Figure 1." caption                    |
+| Refer to a figure             | `[@fig:arch]`, `[@fig:a; @fig:b]`                            | linked "Fig. 1", "Figs. 1 and 2"       |
+| Cite a work                   | `[@vaswani2017]`, `[@ba2016; @zhang2019]`                    | linked `[1]`, `[2, 3]` + References    |
+
+Applied automatically, nothing to write: numbered section headings (`##` → 1, `###` → 1.2, also in the
+table of contents), justified and hyphenated paragraphs, and an end mark (∎) after the final paragraph
+when the article ends with one (References and footnotes may follow; a closing figure or list gets no mark).
+
+### Emphasis
+
+Use `<mark>` for a phrase inside a sentence, `<Callout>` for a statement that should stand on its own.
+Both use the same amber accent (`--mark`, `--mark-rule`, `--mark-ink` in `global.css`), kept apart from
+the blue used for links.
+
+```mdx
+Hence, we arrive at the <mark>maximum likelihood estimation problem</mark>.
+
+<Callout>
+Maximizing the likelihood and the log-likelihood give the same parameters, because the logarithm is
+strictly increasing.
+</Callout>
+
+<Callout label="Definition" title="Likelihood function">
+For an observed event $x$, the likelihood is the density viewed as a function of the parameter:
+
+$$
+\mathcal{L}_x(\theta) = p_\theta(x).
+$$
+</Callout>
+```
+
+- `label` is the small uppercase tag (default `Key idea`); use `Definition`, `Result`, `Note`, … as fits.
+  `title` is optional and names the thing being defined.
+- A callout holds normal Markdown: paragraphs, lists, math. Use emphasis sparingly; a few per article.
+
+### Side notes
+
+```mdx
+The Transformer normalizes after every residual block.<Sidenote>This is the "Post-LN" arrangement.</Sidenote> Layer …
+```
+
+- Place it right after the word or sentence it comments on, inside the paragraph (no blank lines around it).
+- Notes are numbered automatically. On screens ≥ 1280px they sit in the right margin, level with the line;
+  on narrower screens readers tap the number to expand the note in place.
+- Keep notes short (a sentence or two) and inline-only: no paragraphs, lists or display math inside.
+
+### Figures and cross-references
+
+Every `<Figure>` and every interactive figure (any component in `src/components/interactive/`) is numbered
+in document order and captioned "Figure N.". Give a figure an `id` to refer to it:
+
+```mdx
+The architecture is shown in [@fig:transformer].
+
+<Figure id="transformer" src="/figures/layer-norm/transformer.png" alt="…" caption="The Transformer." />
+<PhasePortrait id="damped" caption="Trajectories of the system in [@fig:transformer]." />
+```
+
+- `[@fig:id]` renders a linked "Fig. N"; `[@fig:a; @fig:b]` renders "Figs. 1 and 2". References may
+  point forward to later figures. Hovering previews the figure; after jumping, its caption shows ↩ back.
+- Inside a `caption` string, `[@fig:id]` becomes plain text "Fig. N" (a caption string can't hold a link).
+- A wrong id renders "Fig. ?" and prints a `[citations]` warning during the build.
+- Short captions are centered; longer ones are set as a left-aligned block.
+- A new component added to `src/components/interactive/` is numbered after restarting `npm run dev`.
+
+### Citations and references
+
+Cite in the text with `[@key]` and describe each work in the frontmatter under `references`.
+Field names follow BibTeX where possible:
+
+```mdx
+---
+title: 'Layer Normalization & RMS Normalization'
+references:
+  vaswani2017:
+    author: [A. Vaswani, N. Shazeer, N. Parmar]   # a list, or a single string
+    title: Attention Is All You Need               # required
+    venue: Advances in Neural Information Processing Systems   # journal, conference, site, …
+    year: 2017
+    url: https://arxiv.org/abs/1706.03762          # optional: links the title
+    doi: 10.48550/arXiv.1706.03762                 # optional
+    note: Extended version.                        # optional
+  karpathy-llmc-layernorm:
+    author: A. Karpathy
+    title: LayerNorm
+    venue: llm.c documentation, GitHub
+    url: https://github.com/karpathy/llm.c/blob/master/doc/layernorm/layernorm.md
+nocite: [karpathy-llmc-layernorm]   # further reading: listed without an in-text citation
+---
+
+The Transformer [@vaswani2017] uses layer normalization [@ba2016; @zhang2019].
+```
+
+- Works are numbered `[1]`, `[2]`, … in order of first citation, and only cited works (plus `nocite`) are
+  listed. A **References** section (unnumbered, in the table of contents) is appended automatically,
+  so don't write one by hand.
+- Hovering a citation shows the full reference; each entry's ↩ returns to the citation the reader clicked.
+- Figures and works can share a bracket: `[@fig:arch; @vaswani2017]` → "Fig. 1 [1]".
+- An unknown key renders `[?]` and prints a `[citations]` warning during the build.
+- YAML: quote values containing `#` or `: ` (e.g. `venue: "GitHub issue #1292"`), or they get cut off.
+- Changes to the citation plugin (`src/lib/remark-citations.mjs`) need a dev-server restart.
 
 ## Interactive figures
 
@@ -69,11 +180,14 @@ src/
 ├── site.config.ts            # site name, tagline, nav, links
 ├── content/blog/             # articles (.mdx / .md)
 ├── components/
-│   ├── Header, Footer, TableOfContents, ArticleList, TopicTags, Figure
+│   ├── Header, Footer, TableOfContents, ArticleList, TopicTags
+│   ├── Figure, Callout, Sidenote   # article elements (see Writing reference)
 │   ├── mdx.ts                # components available in every article
 │   └── interactive/          # interactive figures
 ├── layouts/                  # BaseLayout (SEO, fonts), ArticleLayout (TOC, prev/next, related)
-├── lib/                      # articles.ts (queries), topics.ts (topic registry), when-visible.ts
+├── lib/                      # articles.ts (queries), topics.ts (topic registry), when-visible.ts,
+│                             # remark-citations.mjs (citations, figure numbers, References),
+│                             # citations.ts (hover previews and back links)
 ├── pages/                    # /, /articles/, /articles/[slug]/, /topics/, /topics/[topic]/, /about/, 404
 └── styles/global.css         # tokens, typography, prose, code and math styles
 public/                       # favicon, robots.txt, _headers (Cloudflare cache rules), figures/, images/
