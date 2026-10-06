@@ -17,6 +17,10 @@
   --focus: #2b7de0;
   --code-bg: #f5f5f3;
   --selection: #d6e4f5;
+  /* Emphasis: <mark> highlights and <Callout> blocks share this warm hue. */
+  --mark: #f6df98;
+  --mark-rule: #d4a72c;
+  --mark-ink: #8c6512;
 
   --serif: var(--font-serif), Georgia, serif;
   --sans: var(--font-sans), system-ui, sans-serif;
@@ -56,6 +60,9 @@
   --focus: #7fb2e8;
   --code-bg: #1b1b1a;
   --selection: #2a4466;
+  --mark: #6a5419;
+  --mark-rule: #c39a3d;
+  --mark-ink: #e2c06a;
 }
 
 /* ==========================================================================
@@ -557,11 +564,58 @@ a.ref-title:hover {
   font-weight: 650;
 }
 
+/* Highlighter stroke over the lower part of the text, continued across line breaks. */
 .prose mark {
-  background: var(--selection);
   color: inherit;
-  padding: 0 0.15em;
-  border-radius: 2px;
+  background: linear-gradient(to top, transparent 0.14em, var(--mark) 0.14em, var(--mark) 0.68em, transparent 0.68em);
+  padding: 0 0.12em;
+  margin: 0 -0.04em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* ==========================================================================
+   Callouts (components/Callout.astro): a key statement or definition
+   ========================================================================== */
+
+.prose .callout {
+  margin-block: 1.75em;
+  padding: 0.85em 1.1em 0.95em;
+  background: color-mix(in oklab, var(--mark) 22%, var(--bg));
+  border-left: 2px solid var(--mark-rule);
+  border-radius: 0 4px 4px 0;
+}
+
+.prose .callout-label {
+  display: block;
+  margin-bottom: 0.35em;
+  font-family: var(--sans);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mark-ink);
+}
+
+.prose .callout-label .callout-title {
+  margin-left: 0.6em;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.prose .callout > * + * {
+  margin-top: 0.6em;
+}
+
+.prose .callout > :not(.callout-label) {
+  margin-bottom: 0;
+}
+
+.prose .callout mark {
+  background: none;
+  font-weight: 600;
 }
 
 /* Inline code */
