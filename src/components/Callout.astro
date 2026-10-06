@@ -1,0 +1,29 @@
+---
+/**
+ * A highlighted block for a key statement, definition, or result: the block
+ * counterpart of <mark>, in the same accent (styles/global.css, Callouts).
+ *
+ *   <Callout>
+ *     Maximum likelihood estimation picks the parameters under which the
+ *     observed data are most likely.
+ *   </Callout>
+ *
+ *   <Callout label="Definition" title="Likelihood function">
+ *     $\mathcal{L}_x(\theta) = p_\theta(x)$, viewed as a function of $\theta$ with $x$ fixed.
+ *   </Callout>
+ *
+ * `label` is the small uppercase tag (default "Key idea"); `title` is
+ * optional and names the thing being defined or stated.
+ */
+export interface Props {
+  label?: string;
+  title?: string;
+}
+
+const { label = 'Key idea', title } = Astro.props;
+---
+
+<aside class="callout" aria-label={title ? `${label}: ${title}` : label}>
+  <span class="callout-label">{label}{title && <span class="callout-title">{title}</span>}</span>
+  <slot />
+</aside>
