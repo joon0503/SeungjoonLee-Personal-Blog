@@ -37,6 +37,23 @@
  *
  * (A component added to components/interactive/ is picked up on the next
  * dev-server start.)
+ *
+ * Equations are numbered as in LaTeX. `$$ ... $$` is unnumbered like \[ \],
+ * unless it holds a \label; the equation, align, gather and alignat
+ * environments number every row, unless the row has \notag or \nonumber.
+ * \tag{...} sets a custom tag. Refer to a labelled equation with
+ *
+ *   $$ x_{k+1} = A x_k + B u_k \label{dynamics} $$
+ *   ... substituting [@eq:dynamics] ...                   → Eq. (1)
+ *   ... from [@eq:a; @eq:b] ...                           → Eqs. (1) and (2)
+ *   $$ y \overset{\eqref{dynamics}}{=} z $$               → (1), inside math
+ *
+ * A leading `eq:` in a label is dropped: \label{eq:dynamics} is [@eq:dynamics].
+ *
+ * Numbers are written into the math as \tag{\htmlId{eq-<label>}{N}}, so KaTeX
+ * draws them and each labelled row gets an anchor; \eqref{x} and \ref{x}
+ * inside math become \href{#eq-x}{(N)} and \href{#eq-x}{N}. Both need the
+ * KaTeX `trust` setting in astro.config.mjs.
  */
 
 import { readdirSync } from 'node:fs';
@@ -59,6 +76,56 @@ const SKIP = new Set(['code', 'inlineCode', 'math', 'inlineMath', 'link', 'linkR
 const t = (text) => ({ type: 'text', value: text });
 /** @param {string} tagName @param {Record<string, unknown>} properties @param {any[]} children */
 const h = (tagName, properties, children = []) => ({ type: 'element', tagName, properties, children });
+
+/**
+ * Split an environment body into rows at top-level `\\`, ignoring those inside
+ * braces or a nested \begin...\end (cases, matrices, aligned, ...).
+ * @param {string} body
+ */
+function splitRows(body) {
+  const rows = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === '{') depth += 1;
+    else if (c === '}') depth -= 1;
+    else if (c === '\\') {
+      if (body[i + 1] === '\\' && depth === 0) {
+        rows.push(body.slice(start, i));
+        start = i;
+        i += 1;
+      } else if (body.startsWith('begin{', i + 1)) depth += 1;
+      else if (body.startsWith('end{', i + 1)) depth -= 1;
+      else i += 1; // \{, \}, or the first letter of a command
+    }
+  }
+  rows.push(body.slice(start));
+  return rows;
+}
+
+/**
+ * Replace the LaTeX of a `math` or `inlineMath` node. remark-math also copies
+ * it into the node's hast (`data.hChildren`) while parsing, so update both.
+ */
+function setMath(node, value) {
+  node.value = value;
+  const text = (nodes) => {
+    for (const n of nodes ?? []) {
+      if (n.type === 'text') n.value = value;
+      else text(n.children);
+    }
+  };
+  text(node.data?.hChildren);
+}
+
+const LABEL = /\\label\s*\{([^{}]*)\}/g;
+const NOTAG = /\\(?:notag|nonumber)\b/g;
+const TAG = /\\tag(\*?)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/;
+const NUMBERED_ENV = /\\begin\{(equation|align|gather|alignat)(\*?)\}/g;
+const MATH_REF = /\\(eqref|ref)\s*\{([^{}]*)\}/g;
+/** Equation label; a LaTeX-habit `eq:` prefix is dropped, so \label{eq:x} is [@eq:x]. */
+const eqLabel = (label) => label.trim().replace(/^eq:/, '');
 
 /** "A", "A and B", "A, B, and C" */
 function formatAuthors(author) {
@@ -119,16 +186,94 @@ export default function remarkCitations() {
     };
     numberFigures(tree);
 
-    /** "Fig. 1" / "Figs. 1 and 2" as plain text, for caption strings. */
-    const figureText = (labels) => {
+    // Pass 1b: number the display equations, rewriting their LaTeX in place.
+    /** @type {Map<string, string>} equation label \u2192 tag ("3", or a custom \tag) */
+    const equations = new Map();
+    let equationCount = 0;
+    /** Number one row (or a whole equation); `auto` for rows of a numbered environment. */
+    const numberRow = (row, auto) => {
+      const labels = [...row.matchAll(LABEL)].map((m) => eqLabel(m[1]));
+      row = row.replace(LABEL, '');
+      const notag = row.search(NOTAG) >= 0;
+      row = row.replace(NOTAG, '');
+      const anchor = labels[0] ? `eq-${labels[0]}` : undefined;
+      const tagged = row.match(TAG);
+      let tag;
+      if (tagged) {
+        tag = tagged[2];
+        if (anchor) row = row.replace(TAG, `\\tag${tagged[1]}{\\htmlId{${anchor}}{${tagged[2]}}}`);
+      } else if ((auto && !notag) || labels.length > 0) {
+        equationCount += 1;
+        tag = String(equationCount);
+        row = `${row.trimEnd()} \\tag{${anchor ? `\\htmlId{${anchor}}{${tag}}` : tag}}`;
+      }
+      for (const label of labels) {
+        if (equations.has(label)) console.warn(`[citations] ${file.path ?? ''}: duplicate equation label "${label}"`);
+        equations.set(label, tag ?? '?');
+      }
+      return row;
+    };
+    /** Number the rows of each environment, and labels outside them. */
+    const numberMath = (value) => {
+      let out = '';
+      let last = 0;
+      for (const match of value.matchAll(NUMBERED_ENV)) {
+        if (match.index < last) continue;
+        const [begin, env, star] = match;
+        const end = `\\end{${env}${star}}`;
+        const close = value.indexOf(end, match.index + begin.length);
+        if (close < 0) continue;
+        const body = value.slice(match.index + begin.length, close);
+        const auto = star === '';
+        const rows = env === 'equation' ? [body] : splitRows(body);
+        out += numberRow(value.slice(last, match.index), false);
+        out += `\\begin{${env}*}${rows.map((row) => numberRow(row, auto)).join('')}\\end{${env}*}`;
+        last = close + end.length;
+      }
+      return out + numberRow(value.slice(last), false);
+    };
+    const numberEquations = (node) => {
+      for (const child of node.children ?? []) {
+        if (child.type === 'math') setMath(child, numberMath(child.value));
+        else numberEquations(child);
+      }
+    };
+    numberEquations(tree);
+
+    // \eqref{x} and \ref{x} inside math (inline or display) link to the equation.
+    const resolveMathRefs = (node) => {
+      for (const child of node.children ?? []) {
+        if (child.type === 'math' || child.type === 'inlineMath') {
+          const value = child.value.replace(MATH_REF, (_, command, label) => {
+            label = eqLabel(label);
+            const tag = equations.get(label);
+            if (tag === undefined) console.warn(`[citations] ${file.path ?? ''}: unknown equation "\\${command}{${label}}"`);
+            const text = command === 'eqref' ? `(${tag ?? '?'})` : (tag ?? '?');
+            return tag === undefined ? `\\text{${text}}` : `\\href{#eq-${label}}{\\text{${text}}}`;
+          });
+          if (value !== child.value) setMath(child, value);
+        } else resolveMathRefs(child);
+      }
+    };
+    resolveMathRefs(tree);
+
+    /** Cross-reference kinds: [@fig:label] and [@eq:label]. */
+    const XREF = {
+      fig: { numbers: figures, noun: 'figure', one: 'Fig.', many: 'Figs.', wrap: (n) => n },
+      eq: { numbers: equations, noun: 'equation', one: 'Eq.', many: 'Eqs.', wrap: (n) => `(${n})` },
+    };
+
+    /** "Fig. 1", "Figs. 1 and 2", "Eq. (1)", ... as plain text, for caption strings. */
+    const xrefText = (kind, labels) => {
+      const { numbers, noun, one, many, wrap } = XREF[kind];
       const ns = labels.map((label) => {
-        if (figures.has(label)) return String(figures.get(label));
-        console.warn(`[citations] ${file.path ?? ''}: unknown figure "@fig:${label}" in a caption`);
-        return '?';
+        if (numbers.has(label)) return wrap(String(numbers.get(label)));
+        console.warn(`[citations] ${file.path ?? ''}: unknown ${noun} "@${kind}:${label}" in a caption`);
+        return wrap('?');
       });
-      if (ns.length === 1) return `Fig.\u00a0${ns[0]}`;
+      if (ns.length === 1) return `${one}\u00a0${ns[0]}`;
       const last = ns.pop();
-      return `Figs.\u00a0${ns.join(', ')}${ns.length > 1 ? ',' : ''} and ${last}`;
+      return `${many}\u00a0${ns.join(', ')}${ns.length > 1 ? ',' : ''} and ${last}`;
     };
     const resolveCaptions = (node) => {
       for (const child of node.children ?? []) {
@@ -137,7 +282,10 @@ export default function remarkCitations() {
             if (attr.name !== 'caption' || typeof attr.value !== 'string') continue;
             attr.value = attr.value.replace(CITE, (match, list) => {
               const keys = list.split(/[;,]/).map((k) => k.trim().replace(/^@/, ''));
-              return keys.every((k) => k.startsWith('fig:')) ? figureText(keys.map((k) => k.slice(4))) : match;
+              for (const kind of Object.keys(XREF)) {
+                if (keys.every((k) => k.startsWith(`${kind}:`))) return xrefText(kind, keys.map((k) => k.slice(kind.length + 1)));
+              }
+              return match;
             });
           }
         }
@@ -146,35 +294,38 @@ export default function remarkCitations() {
     };
     resolveCaptions(tree);
 
-    /** "Fig. 1", "Figs. 1 and 2", "Figs. 1, 2, and 3"; each number links to its figure. */
-    const figureRef = (labels) => {
+    /** "Fig. 1", "Figs. 1 and 2", "Eqs. (1), (2), and (3)"; each number links to its figure or equation. */
+    const xrefNode = (kind, labels) => {
+      const { numbers, noun, one, many, wrap } = XREF[kind];
       const links = labels.map((label) => {
-        const n = figures.get(label);
+        const n = numbers.get(label);
         if (n === undefined) {
-          console.warn(`[citations] ${file.path ?? ''}: unknown figure "@fig:${label}"`);
-          return h('span', { className: ['cite-missing'], title: `Unknown figure: ${label}` }, [t('?')]);
+          console.warn(`[citations] ${file.path ?? ''}: unknown ${noun} "@${kind}:${label}"`);
+          return h('span', { className: ['cite-missing'], title: `Unknown ${noun}: ${label}` }, [t(wrap('?'))]);
         }
-        const use = (uses.get(`fig:${label}`) ?? 0) + 1;
-        uses.set(`fig:${label}`, use);
-        return h('a', { href: `#fig-${label}`, id: `figref-${label}-${use}`, className: ['fig-link'], dataFig: label }, [
-          t(String(n)),
-        ]);
+        const use = (uses.get(`${kind}:${label}`) ?? 0) + 1;
+        uses.set(`${kind}:${label}`, use);
+        return h(
+          'a',
+          { href: `#${kind}-${label}`, id: `${kind}ref-${label}-${use}`, className: [`${kind}-link`], [`data${kind[0].toUpperCase()}${kind.slice(1)}`]: label },
+          [t(wrap(String(n)))],
+        );
       });
       const children = [];
       if (links.length === 1) {
         // A single reference links the whole "Fig. N".
         const [link] = links;
-        if (link.tagName === 'a') link.children = [t(`Fig.\u00a0${link.children[0].value}`)];
-        else children.push(t('Fig.\u00a0'));
+        if (link.tagName === 'a') link.children = [t(`${one}\u00a0${link.children[0].value}`)];
+        else children.push(t(`${one}\u00a0`));
         children.push(link);
       } else {
-        children.push(t('Figs.\u00a0'));
+        children.push(t(`${many}\u00a0`));
         links.forEach((link, i) => {
           if (i > 0) children.push(t(i === links.length - 1 ? (links.length > 2 ? ', and ' : ' and ') : ', '));
           children.push(link);
         });
       }
-      return { type: 'figureRef', data: { hName: 'span', hProperties: { className: ['xref'] }, hChildren: children } };
+      return { type: 'crossReference', data: { hName: 'span', hProperties: { className: ['xref'] }, hChildren: children } };
     };
 
     const citeNode = (keys) => {
@@ -212,11 +363,14 @@ export default function remarkCitations() {
         for (const match of child.value.matchAll(CITE)) {
           if (match.index > last) next.push(t(child.value.slice(last, match.index)));
           const keys = match[1].split(/[;,]/).map((k) => k.trim().replace(/^@/, ''));
-          const figs = keys.filter((k) => k.startsWith('fig:')).map((k) => k.slice(4));
-          const works = keys.filter((k) => !k.startsWith('fig:'));
-          if (figs.length > 0) next.push(figureRef(figs));
-          if (figs.length > 0 && works.length > 0) next.push(t(' '));
-          if (works.length > 0) next.push(citeNode(works));
+          const parts = [];
+          for (const kind of Object.keys(XREF)) {
+            const labels = keys.filter((k) => k.startsWith(`${kind}:`)).map((k) => k.slice(kind.length + 1));
+            if (labels.length > 0) parts.push(xrefNode(kind, labels));
+          }
+          const works = keys.filter((k) => !Object.keys(XREF).some((kind) => k.startsWith(`${kind}:`)));
+          if (works.length > 0) parts.push(citeNode(works));
+          parts.forEach((part, i) => next.push(...(i > 0 ? [t(' '), part] : [part])));
           last = match.index + match[0].length;
         }
         if (last < child.value.length) next.push(t(child.value.slice(last)));
