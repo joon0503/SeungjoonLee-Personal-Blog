@@ -11,13 +11,19 @@
  * Figure references ("Fig. 1") behave the same way: the popover previews the
  * figure (image and caption), and after jumping to a figure its caption shows
  * a ↩ link back to the text.
+ *
+ * Equation references ("Eq. (1)", and \eqref links KaTeX draws inside math)
+ * preview the whole displayed equation.
  */
 
 const OPEN_DELAY = 120;
 const CLOSE_DELAY = 180;
+const LINKS = 'a.cite-link, a.fig-link, a.eq-link, .katex a[href^="#eq-"]';
+
+type Kind = 'ref' | 'fig' | 'eq';
 
 export function initCitations(root: ParentNode = document): void {
-  const links = [...root.querySelectorAll<HTMLAnchorElement>('a.cite-link, a.fig-link')];
+  const links = [...root.querySelectorAll<HTMLAnchorElement>(LINKS)];
   if (links.length === 0) return;
 
   const popover = document.createElement('div');
@@ -30,13 +36,24 @@ export function initCitations(root: ParentNode = document): void {
   let openTimer = 0;
   let closeTimer = 0;
 
-  const isFigure = (link: HTMLAnchorElement) => link.classList.contains('fig-link');
-  const entryFor = (link: HTMLAnchorElement) =>
-    document.getElementById(isFigure(link) ? `fig-${link.dataset.fig}` : `ref-${link.dataset.ref}`);
+  const kindOf = (link: HTMLAnchorElement): Kind =>
+    link.classList.contains('fig-link') ? 'fig' : link.classList.contains('cite-link') ? 'ref' : 'eq';
+  /** The reference entry, the figure, or the displayed equation a link points to. */
+  const entryFor = (link: HTMLAnchorElement): HTMLElement | null => {
+    const target = document.getElementById(decodeURIComponent(link.hash.slice(1)));
+    return kindOf(link) === 'eq' ? (target?.closest<HTMLElement>('.katex-display') ?? null) : target;
+  };
 
-  /** Popover content: the reference entry, or a figure's image and caption. */
+  /** Popover content: the reference entry, a figure's image and caption, or an equation. */
   function previewOf(link: HTMLAnchorElement, entry: HTMLElement): Node[] {
-    if (!isFigure(link)) {
+    const kind = kindOf(link);
+    if (kind === 'eq') {
+      const equation = entry.cloneNode(true) as HTMLElement;
+      equation.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+      equation.classList.add('popover-eq');
+      return [equation];
+    }
+    if (kind === 'ref') {
       return [entry.querySelector('.ref-label'), entry.querySelector('.ref-body')]
         .filter((n): n is Element => !!n)
         .map((n) => n.cloneNode(true));
@@ -68,7 +85,7 @@ export function initCitations(root: ParentNode = document): void {
       const jump = document.createElement('a');
       jump.className = 'popover-jump';
       jump.href = link.getAttribute('href')!;
-      jump.textContent = isFigure(link) ? 'Go to figure ↓' : 'Go to references ↓';
+      jump.textContent = { ref: 'Go to references ↓', fig: 'Go to figure ↓', eq: 'Go to equation ↓' }[kindOf(link)];
       jump.addEventListener('click', () => rememberOrigin(link));
       popover.append(jump);
     }
@@ -143,7 +160,7 @@ export function initCitations(root: ParentNode = document): void {
     if (e.key === 'Escape') hide();
   });
   document.addEventListener('pointerdown', (e) => {
-    if (current && !popover.contains(e.target as Node) && !(e.target as Element).closest?.('a.cite-link, a.fig-link')) hide();
+    if (current && !popover.contains(e.target as Node) && !(e.target as Element).closest?.(LINKS)) hide();
   });
   window.addEventListener('resize', hide);
 }

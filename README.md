@@ -16,6 +16,10 @@ npm run preview   # serve dist/ locally
 npm run ci        # what CI runs: build + internal link check
 ```
 
+Math is rendered by KaTeX at build time with the stylesheet from the `katex` package. `overrides` in
+`package.json` makes `rehype-katex` render with that same version (otherwise it bundles its own, and
+the HTML and CSS disagree: misplaced subscripts and equation numbers). To upgrade KaTeX, bump `katex`.
+
 ## Writing an article
 
 Create `src/content/blog/<slug>.mdx`. The file name becomes the URL: `/articles/<slug>/`.
@@ -56,6 +60,8 @@ Everything below works in any `.mdx` article without an import.
 | Aside in the margin           | `text<Sidenote>note</Sidenote> more text`                    | numbered note in the right margin      |
 | Numbered figure               | `<Figure id="arch" src="…" alt="…" caption="…" />`           | "Figure 1." caption                    |
 | Refer to a figure             | `[@fig:arch]`, `[@fig:a; @fig:b]`                            | linked "Fig. 1", "Figs. 1 and 2"       |
+| Numbered equation             | `$$ … \label{dyn} $$`, or `\begin{equation}`/`align`         | "(1)" at the right margin              |
+| Refer to an equation          | `[@eq:dyn]`, `[@eq:a; @eq:b]`; in math `\eqref{dyn}`         | linked "Eq. (1)", "Eqs. (1) and (2)"   |
 | Cite a work                   | `[@vaswani2017]`, `[@ba2016; @zhang2019]`                    | linked `[1]`, `[2, 3]` + References    |
 
 Applied automatically, nothing to write: numbered section headings (`##` → 1, `###` → 1.2, also in the
@@ -118,6 +124,52 @@ The architecture is shown in [@fig:transformer].
 - A wrong id renders "Fig. ?" and prints a `[citations]` warning during the build.
 - Short captions are centered; longer ones are set as a left-aligned block.
 - A new component added to `src/components/interactive/` is numbered after restarting `npm run dev`.
+
+### Equations and cross-references
+
+Equations are numbered as in LaTeX, in document order. Plain `$$ … $$` is unnumbered (like `\[ \]`)
+unless it contains a `\label`; the `equation`, `align`, `gather` and `alignat` environments number
+every row:
+
+```mdx
+The system evolves as
+
+$$
+x_{k+1} = A x_k + B u_k \label{dynamics}
+$$
+
+$$
+\begin{align}
+J &= \sum_k x_k^\top Q x_k + u_k^\top R u_k \label{cost} \\
+  &= \ldots \nonumber \\
+P &= Q + A^\top P A - A^\top P B (R + B^\top P B)^{-1} B^\top P A \label{dare}
+\end{align}
+$$
+
+Substituting [@eq:dynamics] into [@eq:cost] gives [@eq:dare], so
+
+$$
+J \overset{\eqref{dare}}{=} x_0^\top P x_0.
+$$
+```
+
+- `[@eq:label]` renders a linked "Eq. (1)"; `[@eq:a; @eq:b]` renders "Eqs. (1) and (2)", and may point
+  forward. It can share brackets with figures and citations: `[@fig:a; @eq:b; @ba2016]`. Use this form
+  in prose, since MDX reads `{…}` outside math as JSX.
+- Hovering a reference previews the whole equation (every row of an `align`, with its numbers); on
+  touch screens the first tap previews and a second follows the link. After jumping, the equation is
+  highlighted.
+- Inside math, `\eqref{label}` gives a linked "(1)" and `\ref{label}` a linked "1". These preview
+  on hover too.
+- Inside a figure `caption` string, `[@eq:label]` becomes plain text "Eq. (1)".
+- `\notag` / `\nonumber` skips a row of a numbered environment; `\tag{A}` sets a custom tag (refer to it
+  as usual). `equation*`, `align*`, … are unnumbered, except for rows with a `\label`.
+- `\label{eq:dynamics}` works too: a leading `eq:` is dropped, so refer to it as `[@eq:dynamics]`.
+- A wrong label renders "Eq. (?)" and prints a `[citations]` warning during the build; so does a label
+  used twice.
+- Numbering is done at build time by `src/lib/remark-citations.mjs`, which rewrites each number into
+  the math as `\tag{\htmlId{eq-label}{N}}` (an anchor KaTeX draws). `astro.config.mjs` lets KaTeX
+  render `\htmlId` and same-page `\href` links only.
 
 ### Citations and references
 

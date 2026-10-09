@@ -16,11 +16,25 @@ export default defineConfig({
 
   markdown: {
     // remark-math parses $...$ and $$...$$; rehype-katex renders them to HTML at build time,
-    // so no math JavaScript is shipped to the browser. remark-citations turns [@key] into
-    // numbered citations and appends the References section. MDX inherits this processor.
+    // so no math JavaScript is shipped to the browser. The HTML must match the KaTeX stylesheet
+    // (imported in ArticleLayout), so package.json `overrides` makes rehype-katex use the
+    // project's `katex` version instead of its own. remark-citations turns [@key] into
+    // numbered citations, numbers figures and equations, and appends the References section.
+    // MDX inherits this processor.
     processor: unified({
       remarkPlugins: [remarkMath, remarkCitations],
-      rehypePlugins: [rehypeKatex],
+      rehypePlugins: [
+        [
+          rehypeKatex,
+          {
+            // Equation numbering (remark-citations) writes \htmlId anchors and \href links to
+            // equations; allow exactly those, and only links within the page.
+            trust: (/** @type {{ command: string, url?: string }} */ ctx) =>
+              ctx.command === '\\htmlId' || (ctx.command === '\\href' && !!ctx.url?.startsWith('#')),
+            strict: (/** @type {string} */ code) => (code === 'htmlExtension' ? 'ignore' : 'warn'),
+          },
+        ],
+      ],
     }),
     shikiConfig: {
       // Dual themes: colors switch with the light/dark toggle (see styles/global.css).

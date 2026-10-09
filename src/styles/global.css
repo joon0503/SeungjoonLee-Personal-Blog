@@ -461,6 +461,51 @@ a.ref-title:hover {
   border-radius: 2px;
 }
 
+.eq-link {
+  text-decoration: none;
+}
+
+.eq-link:hover,
+.eq-link:target {
+  text-decoration: underline;
+}
+
+.eq-link:target {
+  background: var(--selection);
+  border-radius: 2px;
+}
+
+/* \eqref inside math: KaTeX draws a plain link. */
+.katex a[href^='#eq-'] {
+  text-decoration: none;
+}
+
+.katex a[href^='#eq-']:hover {
+  text-decoration: underline;
+}
+
+/* The displayed equation a reference jumped to. */
+.prose .katex-display:has(:target) {
+  background: var(--bg-subtle);
+  border-radius: 4px;
+}
+
+.cite-popover .popover-eq {
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+/* KaTeX pins equation numbers to the right edge of a full-width display; the
+   popover shrinks to the equation, so keep them in flow after it instead. */
+.cite-popover .popover-eq > .katex > .katex-html > .katex-tag {
+  position: static;
+  margin-left: 1.5em;
+}
+
 .cite-popover .popover-jump {
   display: block;
   margin-top: 0.4rem;
@@ -754,4 +799,10 @@ a.ref-title:hover {
 
 .prose .katex-display > .katex {
   font-size: 1.12em;
+}
+
+/* Equation numbers of a multi-row environment (align, gather) sit in a KaTeX
+   vlist whose -2px margin pokes out of the right edge and shows a scrollbar. */
+.katex-display .katex-tag > .vlist-t2 {
+  margin-right: 0;
 }
