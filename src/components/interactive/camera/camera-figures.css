@@ -1,0 +1,326 @@
+/*
+ * Shared styles for the camera figures (Pinhole*, Homogeneous*, Intrinsics*).
+ * Everything is scoped under .cam-fig so it cannot leak into the article.
+ */
+
+.cam-fig {
+  --obj-a: #d9822b;
+  --obj-b: #2a9d8f;
+  --ax-x: #d64545;
+  --ax-y: #3c9a4a;
+  --ax-z: #2f6fd0;
+  --hl: #b8327a;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+:root[data-theme='dark'] .cam-fig {
+  --obj-a: #e0a15e;
+  --obj-b: #5cc2b5;
+  --ax-x: #f07b7b;
+  --ax-y: #74c47f;
+  --ax-z: #7fa9ef;
+  --hl: #e27ab4;
+}
+
+.cam-fig p {
+  margin: 0;
+  text-align: left;
+}
+
+.cam-fig .views {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .cam-fig .views.two {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .cam-fig .split-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+}
+
+.cam-fig .view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.cam-fig .view-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.cam-fig .view-title span:first-child {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cam-fig svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--bg-subtle);
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cam-fig svg text {
+  font-family: var(--sans);
+}
+
+.cam-fig svg.draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.cam-fig svg.draggable:active {
+  cursor: grabbing;
+}
+
+.cam-fig .controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .cam-fig .controls.cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cam-fig .controls.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.cam-fig fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cam-fig legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cam-fig label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.cam-fig label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cam-fig .label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-muted);
+}
+
+.cam-fig i {
+  font-family: var(--serif);
+  font-size: 1.1em;
+}
+
+.cam-fig output,
+.cam-fig .num {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-fig input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.cam-fig input[type='checkbox'],
+.cam-fig input[type='radio'] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.cam-fig .segmented {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Chips: a radio group styled as pills, for switching between setups. */
+.cam-fig .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.cam-fig .chips label {
+  padding: 0.25rem 0.75rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cam-fig .chips label:hover {
+  border-color: var(--text-muted);
+}
+
+.cam-fig .chips input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cam-fig .chips label:has(input:checked) {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cam-fig .chips label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cam-fig button {
+  align-self: start;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cam-fig button:hover {
+  border-color: var(--text-muted);
+}
+
+.cam-fig .readouts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.75rem;
+  align-items: flex-start;
+}
+
+.cam-fig .readout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.cam-fig .readout-title {
+  color: var(--text-muted);
+}
+
+.cam-fig dl.readout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.75rem;
+  margin: 0;
+}
+
+.cam-fig dt {
+  color: var(--text-muted);
+}
+
+.cam-fig dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bracketed matrix: cells are spans laid out by renderMatrix(). */
+.cam-fig .matrix {
+  display: inline-grid;
+  grid-template-columns: repeat(var(--cols, 3), auto);
+  gap: 0.1rem 0.8rem;
+  padding: 0.2rem 0.45rem;
+  border-inline: 1.5px solid var(--text-muted);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cam-fig .matrix .split {
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--border-strong);
+}
+
+.cam-fig .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.cam-fig .swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-right: 0.3rem;
+  border-radius: 2px;
+  vertical-align: -0.05rem;
+}
+
+.cam-fig .hint {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+}
+
+.cam-fig .status {
+  min-height: 1.45em;
+  margin-top: -0.6rem;
+  color: var(--text-muted);
+}
+
+.cam-fig .status.on {
+  font-weight: 600;
+  color: var(--hl);
+}
+
+.cam-fig .status.warn {
+  font-weight: 600;
+  color: var(--ax-x);
+}
+
+.cam-fig .fallback {
+  color: var(--text-muted);
+}

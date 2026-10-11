@@ -31,6 +31,7 @@ description: 'One or two sentences; used as subtitle and meta description.'
 date: 2026-09-29
 updated: 2026-10-05 # optional
 topics: [control, optimization]
+authorship: 'Written by me; figures coded by an AI agent.' # optional, shown in the header
 draft: false # drafts show in `npm run dev` only
 ---
 
@@ -63,6 +64,7 @@ Everything below works in any `.mdx` article without an import.
 | Numbered equation             | `$$ … \label{dyn} $$`, or `\begin{equation}`/`align`         | "(1)" at the right margin              |
 | Refer to an equation          | `[@eq:dyn]`, `[@eq:a; @eq:b]`; in math `\eqref{dyn}`         | linked "Eq. (1)", "Eqs. (1) and (2)"   |
 | Cite a work                   | `[@vaswani2017]`, `[@ba2016; @zhang2019]`                    | linked `[1]`, `[2, 3]` + References    |
+| Note how the post was made    | frontmatter `authorship: '…'`                                | outlined "Authorship" note in header   |
 
 Applied automatically, nothing to write: numbered section headings (`##` → 1, `###` → 1.2, also in the
 table of contents), justified and hyphenated paragraphs, and an end mark (∎) after the final paragraph

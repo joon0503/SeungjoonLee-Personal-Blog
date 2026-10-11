@@ -1,0 +1,103 @@
+---
+/**
+ * The intrinsic matrix K as a map from the normalized image plane to pixels.
+ *
+ * The markup is rendered at build time; ./intrinsics-explorer.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import './camera-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'K maps the normalized image plane (x/z, y/z), which depends only on the geometry, to pixel coordinates. Focal lengths scale, the principal point shifts, and skew shears. The blue outline on the left is the part of the scene that fits on a 640 × 480 sensor, so a longer focal length means a narrower field of view.',
+  id,
+  number,
+} = Astro.props;
+
+const sliders: { key: string; label: string; note?: string; min: number; max: number; step: number; value: number }[] = [
+  { key: 'fx', label: 'f_x', min: 100, max: 1500, step: 5, value: 500 },
+  { key: 'fy', label: 'f_y', min: 100, max: 1500, step: 5, value: 500 },
+  { key: 'cx', label: 'c_x', min: 0, max: 640, step: 1, value: 320 },
+  { key: 'cy', label: 'c_y', min: 0, max: 480, step: 1, value: 240 },
+  { key: 's', label: 's', note: 'skew', min: -300, max: 300, step: 5, value: 0 },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <intrinsics-explorer class="cam-fig">
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Normalized image plane</span><span>(x/z, y/z)</span></div>
+        <svg viewBox="0 0 400 300" role="img" aria-label="Normalized image plane with the sensor footprint outlined" data-normalized></svg>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Pixels</span><span>640 × 480</span></div>
+        <svg viewBox="0 0 640 480" role="img" aria-label="The same content mapped to pixel coordinates by K" data-pixels></svg>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="split-layout">
+      <div class="controls cols-2">
+        {
+          sliders.map((s) => {
+            const [base, sub] = s.label.split('_');
+            return (
+              <label>
+                <span class="label">
+                  <span>
+                    <i>{base}</i>
+                    {sub && <sub>{sub}</sub>}
+                    {s.note && ` (${s.note})`}
+                  </span>
+                  <output data-out={s.key}>{s.value}</output>
+                </span>
+                <input type="range" min={s.min} max={s.max} step={s.step} value={s.value} data-in={s.key} />
+              </label>
+            );
+          })
+        }
+        <label class="inline">
+          <input type="checkbox" data-in="lock" checked />
+          <span>Square pixels (<i>f</i><sub>y</sub> = <i>f</i><sub>x</sub>)</span>
+        </label>
+      </div>
+      <div class="readout">
+        <span class="readout-title"><i>K</i></span>
+        <span class="matrix" data-out="K"></span>
+        <dl class="readout">
+          <dt>Field of view</dt>
+          <dd data-out="fov">—</dd>
+          <dt>Lens focal length*</dt>
+          <dd data-out="mm">—</dd>
+        </dl>
+        <p class="hint">*<i>f</i> = <i>f</i><sub>x</sub> × pixel pitch, for a 3.45 µm pixel.</p>
+        <button type="button" data-action="reset">Reset</button>
+      </div>
+    </div>
+  </intrinsics-explorer>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class IntrinsicsExplorerElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountIntrinsicsExplorer } = await import('./intrinsics-explorer');
+        mountIntrinsicsExplorer(this);
+      });
+    }
+  }
+
+  if (!customElements.get('intrinsics-explorer')) {
+    customElements.define('intrinsics-explorer', IntrinsicsExplorerElement);
+  }
+</script>
