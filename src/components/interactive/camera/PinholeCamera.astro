@@ -1,0 +1,176 @@
+---
+/**
+ * Interactive pinhole camera: a 3D scene (camera, frustum, projection rays)
+ * next to the image that camera renders, updated live as the camera and the
+ * objects move.
+ *
+ * The markup is rendered at build time; ./pinhole-camera.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import './camera-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'Scene: the world, the camera (center C; axes xc right, yc down, zc forward) and its image plane drawn in front of C, with the rays from each object corner to C. Camera image: what that camera captures, in pixels. Drag the scene to orbit; use the sliders to move the camera and the objects.',
+  id,
+  number,
+} = Astro.props;
+
+interface Slider {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+}
+
+const cameraPosition: Slider[] = [
+  { key: 'camX', label: 'x', min: -8, max: 3, step: 0.1, value: -5 },
+  { key: 'camY', label: 'y', min: -6, max: 6, step: 0.1, value: -2 },
+  { key: 'camZ', label: 'z', min: 0.1, max: 5, step: 0.1, value: 1.8 },
+];
+const cameraOrientation: Slider[] = [
+  { key: 'yaw', label: 'Yaw', min: -180, max: 180, step: 1, value: 20 },
+  { key: 'pitch', label: 'Pitch (down +)', min: -60, max: 80, step: 1, value: 12 },
+  { key: 'roll', label: 'Roll', min: -90, max: 90, step: 1, value: 0 },
+];
+const lens: Slider[] = [{ key: 'f', label: 'Focal length f', min: 150, max: 1500, step: 5, value: 500 }];
+const objectSliders: Slider[] = [
+  { key: 'objX', label: 'x', min: -4, max: 4, step: 0.1, value: 0 },
+  { key: 'objY', label: 'y', min: -4, max: 4, step: 0.1, value: 0.8 },
+  { key: 'objZ', label: 'z (lift)', min: 0, max: 3, step: 0.1, value: 0 },
+  { key: 'objYaw', label: 'Yaw', min: -180, max: 180, step: 1, value: 20 },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <pinhole-camera class="cam-fig">
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Scene</span><span>drag to orbit</span></div>
+        <svg
+          class="draggable"
+          viewBox="0 0 480 360"
+          role="img"
+          aria-label="3D scene with the camera, its frustum and image plane, two objects and projection rays"
+          data-scene></svg>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Camera image</span><span>640 × 480 px</span></div>
+        <svg viewBox="0 0 640 480" role="img" aria-label="The image rendered by the pinhole camera" data-image></svg>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="legend">
+      <span><span class="swatch" style="background: var(--obj-a)"></span>Cube</span>
+      <span><span class="swatch" style="background: var(--obj-b)"></span>Pyramid</span>
+      <span><span class="swatch" style="background: var(--hl); border-radius: 50%"></span>Pyramid apex (tracked below)</span>
+      <span><span class="swatch" style="background: var(--ax-x)"></span>x</span>
+      <span><span class="swatch" style="background: var(--ax-y)"></span>y</span>
+      <span><span class="swatch" style="background: var(--ax-z)"></span>z</span>
+    </div>
+
+    <div class="controls cols-3">
+      <fieldset>
+        <legend>Camera position (m)</legend>
+        {
+          cameraPosition.map((s) => (
+            <label>
+              <span class="label">
+                <i>{s.label}</i>
+                <output data-out={s.key}>{s.value}</output>
+              </span>
+              <input type="range" min={s.min} max={s.max} step={s.step} value={s.value} data-in={s.key} />
+            </label>
+          ))
+        }
+      </fieldset>
+
+      <fieldset>
+        <legend>Camera orientation &amp; lens</legend>
+        {
+          [...cameraOrientation, ...lens].map((s) => (
+            <label>
+              <span class="label">
+                {s.label}
+                <output data-out={s.key}>{s.value}</output>
+              </span>
+              <input type="range" min={s.min} max={s.max} step={s.step} value={s.value} data-in={s.key} />
+            </label>
+          ))
+        }
+        <p class="hint">Field of view: <span class="num" data-out="fov">—</span></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Object</legend>
+        <div class="segmented" role="radiogroup" aria-label="Object to move">
+          <label class="inline"><input type="radio" name="object" value="0" checked /> Cube</label>
+          <label class="inline"><input type="radio" name="object" value="1" /> Pyramid</label>
+        </div>
+        {
+          objectSliders.map((s) => (
+            <label>
+              <span class="label">
+                {s.label.length === 1 ? <i>{s.label}</i> : s.label}
+                <output data-out={s.key}>{s.value}</output>
+              </span>
+              <input type="range" min={s.min} max={s.max} step={s.step} value={s.value} data-in={s.key} />
+            </label>
+          ))
+        }
+      </fieldset>
+    </div>
+
+    <div class="controls cols-3">
+      <label class="inline"><input type="checkbox" data-in="showRays" checked /> Projection rays</label>
+      <label class="inline"><input type="checkbox" data-in="showImage" checked /> Image on image plane</label>
+      <button type="button" data-action="reset">Reset</button>
+    </div>
+
+    <div class="readouts">
+      <div class="readout">
+        <span class="readout-title">Intrinsics <i>K</i></span>
+        <span class="matrix" data-out="K"></span>
+      </div>
+      <div class="readout">
+        <span class="readout-title">Extrinsics [<i>R</i> | <i>t</i>] (camera ← world)</span>
+        <span class="matrix" data-out="Rt"></span>
+      </div>
+      <dl class="readout">
+        <dt>Apex, world <i>X</i><sub>w</sub></dt>
+        <dd data-out="apexW">—</dd>
+        <dt>Apex, camera <i>X</i><sub>c</sub></dt>
+        <dd data-out="apexC">—</dd>
+        <dt>Pixel (<i>u</i>, <i>v</i>)</dt>
+        <dd data-out="apexUV">—</dd>
+      </dl>
+    </div>
+  </pinhole-camera>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class PinholeCameraElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountPinholeCamera } = await import('./pinhole-camera');
+        mountPinholeCamera(this);
+      });
+    }
+  }
+
+  if (!customElements.get('pinhole-camera')) {
+    customElements.define('pinhole-camera', PinholeCameraElement);
+  }
+</script>

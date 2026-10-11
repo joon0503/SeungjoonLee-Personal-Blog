@@ -1,0 +1,330 @@
+---
+title: 'Camera Models and Pose Estimation, Part 1: The Pinhole Camera Model'
+description: 'From a 3D point to a pixel'
+date: 2026-10-11
+topics: [computer-vision, robotics]
+draft: false
+authorship: 'The main text of this post is written by me, with AI used for basic editing such as grammar and spelling mistakes as well as finding necessary references. The interactive figures were all coded by an AI agent.'
+references:
+  wiki:
+    title: Pinhole camera model
+    venue: Wikipedia
+    url: https://en.wikipedia.org/wiki/Pinhole_camera_model
+  hartley2004:
+    author: [R. Hartley, A. Zisserman]
+    title: Multiple View Geometry in Computer Vision
+    venue: Cambridge University Press, 2nd ed.
+    year: 2004
+    doi: 10.1017/CBO9780511811685
+  opencv-calib3d:
+    author: OpenCV
+    title: Camera Calibration and 3D Reconstruction (calib3d module)
+    venue: OpenCV 4.x documentation
+    url: https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html
+  rep103:
+    author: [T. Foote, M. Purvis]
+    title: 'REP 103: Standard Units of Measure and Coordinate Conventions'
+    venue: ROS Enhancement Proposals
+    year: 2010
+    url: https://www.ros.org/reps/rep-0103.html
+  sutton2019:
+    author: R. Sutton
+    title: The Bitter Lesson
+    venue: Incomplete Ideas (blog)
+    year: 2019
+    url: http://www.incompleteideas.net/IncIdeas/BitterLesson.html
+  olson2011:
+    author: E. Olson
+    title: 'AprilTag: A Robust and Flexible Visual Fiducial System'
+    venue: IEEE International Conference on Robotics and Automation (ICRA)
+    year: 2011
+    doi: 10.1109/ICRA.2011.5979561
+  garrido2014:
+    author: [S. Garrido-Jurado, R. Muñoz-Salinas, F. J. Madrid-Cuevas, M. J. Marín-Jiménez]
+    title: Automatic Generation and Detection of Highly Reliable Fiducial Markers under Occlusion
+    venue: Pattern Recognition, 47(6), 2280–2292
+    year: 2014
+    doi: 10.1016/j.patcog.2014.01.005
+  chi2024umi:
+    author: [C. Chi, Z. Xu, C. Pan, E. Cousineau, B. Burchfiel, S. Feng, R. Tedrake, S. Song]
+    title: 'Universal Manipulation Interface: In-The-Wild Robot Teaching Without In-The-Wild Robots'
+    venue: 'Robotics: Science and Systems (RSS)'
+    year: 2024
+    url: https://arxiv.org/abs/2402.10329
+  hifiumi2026:
+    author: 'Simple AI, Y. Wei, J. Ma, J. Wang et al.'
+    title: 'HiFi-UMI: Learning Deployable Manipulation Policies from High-Fidelity UMI Data Alone'
+    venue: arXiv preprint arXiv:2607.25895
+    year: 2026
+    url: https://arxiv.org/abs/2607.25895
+  generalist2025:
+    author: Forbes 
+    title: 'This $440 Million Startup Is Solving Robotics’ Biggest Problem'
+    venue: YouTube
+    year: 2026
+    url: https://youtu.be/PyGkn9DYm9s?si=9ZaFLpLrQuyUSc6y&t=150
+  arducam:
+    author: Arducam
+    title: 2MP Color Global Shutter USB2 Camera with External Trigger and 6-Axis IMU
+    venue: Product page
+    url: https://www.arducam.com/arducam-2mp-color-global-shutter-usb2-camera-with-external-trigger-and-6-axis-imu.html
+  zhang2000:
+    author: Z. Zhang
+    title: A Flexible New Technique for Camera Calibration
+    venue: IEEE Transactions on Pattern Analysis and Machine Intelligence, 22(11), 1330–1334
+    year: 2000
+    doi: 10.1109/34.888718
+  laskin2020:
+    author: [M. Laskin, K. Lee, A. Stooke, L. Pinto, P. Abbeel, A. Srinivas]
+    title: Reinforcement Learning with Augmented Data
+    venue: Advances in Neural Information Processing Systems
+    year: 2020
+    url: https://arxiv.org/abs/2004.14990
+  kostrikov2021:
+    author: [I. Kostrikov, D. Yarats, R. Fergus]
+    title: 'Image Augmentation Is All You Need: Regularizing Deep Reinforcement Learning from Pixels'
+    venue: International Conference on Learning Representations (ICLR)
+    year: 2021
+    url: https://arxiv.org/abs/2004.13649
+  chi2023diffusion:
+    author: [C. Chi, S. Feng, Y. Du, Z. Xu, E. Cousineau, B. Burchfiel, S. Song]
+    title: 'Diffusion Policy: Visuomotor Policy Learning via Action Diffusion'
+    venue: 'Robotics: Science and Systems (RSS)'
+    year: 2023
+    url: https://arxiv.org/abs/2303.04137
+---
+
+import PinholeFrames from '@/components/interactive/camera/PinholeFrames.astro';
+import PinholeSideView from '@/components/interactive/camera/PinholeSideView.astro';
+import IntrinsicsExplorer from '@/components/interactive/camera/IntrinsicsExplorer.astro';
+import PinholeCamera from '@/components/interactive/camera/PinholeCamera.astro';
+import DepthSensitivity from '@/components/interactive/camera/DepthSensitivity.astro';
+
+{/* Series outline
+  Part 1 — The pinhole camera model (this post)
+  Part 2 — Lens distortion, projection models, calibration and reprojection error
+  Part 3 — Pose estimation with ArUco and AprilTag
+  Part 4 — From pose estimation to manipulation policies
+*/}
+
+## Introduction
+
+### Personal Background
+
+I was not familiar with cameras, computer vision, or pose estimation when I started out as a robotics engineer. However, I soon realized that working with cameras is inevitable in modern robotics, and that even a basic understanding of how cameras work, both in hardware and in theory, can take you far. Tag-based estimation comes up in a wide range of applications, from localization and pose estimation to modern data collection systems for imitation learning.
+
+This series covers the basic theory of the pinhole camera model, intrinsic and extrinsic parameters, and how we can use them together with fiducial tags for pose estimation. The series starts from the point where you already have an image from the camera. Lower-level topics such as the camera sensor, image formats, image compression, bandwidth requirements, exposure, gain, and focus will be discussed in a separate series.
+
+### Motivation for Understanding Camera Models
+
+In the era of machine learning, one may wonder about the value of classical computer vision, namely camera models and fiducial-marker-based estimation. After all, the strong message from the field is that large-scale datasets and models seem to solve our tasks remarkably well [@sutton2019]. In practice, however, fiducial markers offer several benefits: they are computationally efficient, quick to build and deploy, accurate, and robust [@olson2011; @garrido2014]. Oftentimes, an appropriate combination of classical computer vision, fiducial markers, and modern machine learning provides the best of both worlds.
+
+From a robotics and manipulation perspective, camera-based techniques are used for large-scale data collection that unlocks the potential of learning-based approaches to manipulation. For example, the original UMI [@chi2024umi] tracks the gripper width from fiducial markers on its fingers, and later systems such as HiFi-UMI [@hifiumi2026] and the data collection behind Generalist's GEN-0 [@generalist2025] build on the same handheld, camera-centric recipe, with fiducial markers as one of its core elements. In any case, I believe knowledge of camera models and fiducial markers will come in handy if you are a robotics engineer.
+
+This series will cover the basics of camera models, including the pinhole model, projection, and distortion. Then, I will discuss how we can use this information along with fiducial markers such as ArUco or AprilTag to estimate their pose relative to the camera. Finally, I will discuss a couple of concrete applications and what can be done with these techniques.
+
+## The Pinhole Model
+
+The objective of the pinhole model (or in fact, of any camera model) is to mathematically describe how a point in 3D space appears in the image captured by the camera. Refer to the Wikipedia article [@wiki] for a basic description of the principle behind the pinhole camera. In this article, I will instead explain the main components required from a computer vision perspective, illustrated in [@fig:pinhole-frames].
+
+<PinholeFrames
+  id="pinhole-frames"
+  caption="The pinhole camera in its own frame: X right, Y down, Z forward along the optical axis, with the optical center C at the origin. The image plane sits at distance f in front of C, and the optical axis meets it at the principal point. Image coordinates (x, y) are measured from the principal point, pixel coordinates (u, v) from the top-left corner. A point P projects to p where its ray to C crosses the image plane. The shaded plane X = 0 is the slice shown in [@fig:pinhole-slice]."
+/>
+
+The pinhole model has several components and frames, so let's go through them one by one.
+
+#### Optical Center
+
+The *optical center* is the reference point in 3D space through which all rays pass. In the pinhole camera model, every point in 3D space is assumed to be connected to the optical center by a straight ray. Think of a photon that reflects off an object and travels in a straight line to the optical center. This is the light the camera captures. <mark>An important thing to note is that all *physical quantities* are expressed in the frame of the optical center.</mark> Notably, the point $P = (X,Y,Z)$ is written with respect to the optical center frame (and so is its estimated pose, but more on this later).
+
+The standard convention, used by OpenCV [@opencv-calib3d] and by the ROS optical frames [@rep103], is to have the $Z_c$ axis point forward along the optical axis (toward the scene), $X_c$ point to the right, and $Y_c$ point down.
+
+#### Point in 3D Space $P$
+
+$P=(X,Y,Z)$ in [@fig:pinhole-frames] denotes the point of interest in 3D space. As mentioned earlier, its coordinates are written with respect to the optical center frame. Typically, $P$ will be a point on a fiducial marker, such as one of its corners.
+
+#### Image Plane
+
+The *image plane* is the virtual plane $Z_c = f$, where $f$ is the focal length. This is the plane onto which 3D points are projected to form the image. In [@fig:pinhole-frames], the image has its origin at the top-left corner, and its pixel coordinates are denoted by $u$ and $v$. Since $u$ and $v$ index the pixels of the image, they start from the top left.
+
+
+<Callout>Now, I can conceptually explain how an image is formed from a 3D scene. For each point $P = (X,Y,Z)$, draw a ray to the optical center, find the point $p=(x,y)$ where it crosses the image plane, and compute its pixel coordinates. Point $P$ will appear at that pixel of the image. Do this for every point in the scene, and you get an RGB image!<Sidenote>This also explains how occlusion works. If two points lie on the same ray, only the closest one appears in the image while the others are hidden behind it.</Sidenote></Callout>
+
+#### Principal Point
+
+The *principal point* is the point $(c_x,c_y)$ where the $Z_c$ axis intersects the image plane. Changing the principal point corresponds to sliding the image within the image plane, which changes the pixel coordinates $(u, v)$ of the projected point $p$, and hence changes the captured image.
+
+
+## Mathematics of the Pinhole Model
+
+Now that the basic components are laid out, let's see exactly how they relate to each other. For this, it is easier to look at a slice of the 3D model from the previous section, as shown in [@fig:pinhole-slice].
+
+### Projection Model
+
+<PinholeSideView
+  id="pinhole-slice"
+  caption="The slice X = 0 of the camera frame in [@fig:pinhole-frames] (the shaded plane), seen with X pointing toward you: Z (the optical axis) to the right, Y down. Light from P passes through the optical center C and lands upside down on the sensor behind it; mirroring the sensor in front of C gives the upright virtual image plane. The two shaded triangles are similar, so y / f = Y / Z. The sensor has a fixed size, so only points inside the field of view (the blue wedge) appear in the image; a longer f narrows it. The principal point c_y is where the optical axis meets the sensor, measured from the top edge of the image (v = y + c_y); moving it slides the sensor and tilts the field of view."
+/>
+
+The core equations are
+$$
+\begin{align}
+u & = f_x \frac{X}{Z} + c_x, \label{projection_x} \\
+v & = f_y \frac{Y}{Z} + c_y, \label{projection_y}
+\end{align}
+$$
+where $u,v \in \mathbb{R}$ are the pixel coordinates, $f_x, f_y \in \mathbb{R}$ are the focal lengths, and $(c_x,c_y)$ is the principal point<Sidenote>The parameters $f_x, f_y, c_x, c_y$ form the *intrinsic parameters* of the camera, which are discussed in more detail in the following section.</Sidenote>.
+
+The derivation follows from a simple geometric argument. Using the similar triangles in [@fig:pinhole-slice], we obtain $f_x \cdot (X/Z)$ as the position of the corresponding point on the virtual image plane, and $c_x$ adds the offset to move the origin to the corner of the image.
+
+
+
+### Intrinsic Parameters
+
+[@eq:projection_x; @eq:projection_y] can also be written as
+$$
+s \begin{bmatrix}
+u \\ v \\ 1
+\end{bmatrix}
+=
+\begin{bmatrix}
+f_x & 0 & c_x \\
+0 & f_y & c_y \\
+0 & 0 & 1
+\end{bmatrix}
+\begin{bmatrix}
+X \\ Y \\ Z
+\end{bmatrix} = K P,
+$$
+where $s = Z$ is a scale factor and $K \in \mathbb{R}^{3 \times 3}$ is called the *intrinsic matrix*<Sidenote>The intrinsic matrix sometimes also includes a skew parameter $\gamma \neq 0$ at entry $(1,2)$ of $K$. It represents non-orthogonal sensor axes, but it can safely be assumed to be zero for modern sensors [@hartley2004].</Sidenote>. You will see this representation more often if you work with libraries such as OpenCV [@opencv-calib3d].
+
+Now, let me discuss the intrinsic parameters in a bit more detail and how they relate to some of the physical quantities that are often quoted for cameras (and lenses).
+
+#### Principal Point ($c_x, c_y$)
+
+Let's start with the principal point $(c_x, c_y)$. From the equation, you can easily tell that the principal point is measured in *pixels*, and its value is usually near the middle of the image. For example, for a 640 × 480 image, we often have $c_x \approx 320$ and $c_y \approx 240$<Sidenote>In fact, this makes a good sanity check for a calibration result.</Sidenote>. That is because cameras are built so that the sensor is centered on the optical axis. However, due to manufacturing tolerances, the alignment is never perfect, so a small offset usually exists.
+
+#### Focal Lengths ($f_x, f_y$)
+
+The focal lengths are also measured in *pixels*, and their values are obtained through the calibration process. However, let's dissect them a bit more and relate them to some physical specifications that we might find in the camera's spec sheet. This will require me to explain the pinhole projection model better and unpack some hand-waved parts of the model!
+
+To understand this better, we need the following concepts:
+- *physical focal length*, in units of millimeters
+- *pixel pitch*, in units of mm/pixel
+
+The physical focal length is the actual distance from the optical center to the sensor (shown in [@fig:pinhole-slice]). The same projection model still holds, and the ray hits the sensor plane at $f \cdot Y/Z$. For example, if $f = 4\,\mathrm{mm}$, $Y = 1.0\,\mathrm{m}$, and $Z = 0.5\,\mathrm{m}$, the ray hits the sensor at $4\,\mathrm{mm} \cdot (1.0/0.5) = 8\,\mathrm{mm}$ from the principal point. The ray activates some part of the image sensor, which then shows up in the image, but which pixel is that? This question is answered by the pixel pitch. The pixel pitch is the distance between the centers of adjacent pixels on the sensor; its inverse tells us how many pixels the sensor packs per mm. If the pixel pitch were $0.1\,\mathrm{mm/pixel}$, the same ray would appear $8 / 0.1 = 80$ pixels below the principal point (recall that $Y$ points down).
+
+Writing the steps above as a single formula, we obtain
+$$
+v = f \cdot \frac{Y}{Z} \cdot \frac{1}{p_y} + c_y = \frac{f}{p_y} \cdot \frac{Y}{Z} + c_y =: f_y \cdot \frac{Y}{Z} + c_y,
+$$
+where $p_y$ is the pixel pitch in the vertical direction.
+
+Hence, the focal length $f_y$ is simply the physical focal length divided by the pixel pitch of the image sensor<Sidenote>If the spec sheet gives the sensor size and resolution instead, the pixel pitch is their ratio. For example, a 4.8 mm × 3.6 mm sensor with 1600 × 1200 pixels has $p_x = 4.8/1600 = 0.003$ mm and $p_y = 3.6/1200 = 0.003$ mm.</Sidenote>.
+
+Another common specification of a camera is its *field of view (FoV)*. It follows from the same similar triangles:
+$$
+\tan \left( \frac{\mathrm{FoV}_y}{2} \right) = \frac{S_h/2}{f}
+\implies
+\mathrm{FoV}_y = 2 \arctan \left( \frac{S_h}{2f} \right) = 2 \arctan \left( \frac{H}{2f_y} \right),
+$$
+where $\mathrm{FoV}_y$ is the vertical FoV, $S_h$ is the height of the image sensor, and $H = S_h / p_y$ is the image height in pixels.
+
+As a practical example, let's look at the spec sheet of a camera [@arducam] and see how these parameters appear. From the sheet, we obtain the following parameters:
+
+| Item | Value |
+| --- | --- |
+| Sensor resolution | 1600 × 1200 |
+| Pixel size | 3 µm × 3 µm |
+| Effective focal length | 2.8 mm |
+| Horizontal FoV | 83° |
+| Vertical FoV | 69° |
+
+The focal length can be estimated from the parameters above as
+$$
+f_x = \frac{2.8\ \mathrm{mm}}{3 \cdot 10^{-3}\ \mathrm{mm/px}} = 933.33\  \mathrm{px},
+$$
+and the same holds for $f_y$, since the pixels are square. Assuming the principal point is at the center, we have $c_x = 1600/2 = 800$ and $c_y = 1200/2 = 600$. Therefore, the intrinsic matrix becomes
+$$
+K \approx \left[ \begin{array}{ccc}
+933.33 & 0 & 800 \\
+0 & 933.33 & 600 \\
+0 & 0 & 1
+\end{array}
+\right].
+$$
+This is a reasonable initial estimate, but the actual values must be obtained through calibration.
+
+The field of view can also be estimated as
+$$
+\mathrm{FoV}_x = 2 \arctan \left( \frac{1600}{ 2 \cdot 933.33} \right) \approx 81.2^\circ
+$$
+and
+$$
+\mathrm{FoV}_y = 2 \arctan \left( \frac{1200}{ 2 \cdot 933.33} \right) \approx 65.5^\circ.
+$$
+These are pretty close to the FoV values in the spec sheet (83° and 69°, respectively).
+
+### Extrinsic Parameters
+
+The *extrinsic parameters* of a camera are the rigid transform $T \in \mathrm{SE}(3)$ between the world frame and the camera's <mark>optical center</mark>. Here, the emphasis is on the optical center. This means that all subsequent pose estimates are with respect to the optical center. There really isn't much more to discuss about the extrinsics, as the concept is straightforward.
+
+I will end this section with two more interactive visualizers, which you can play around with while changing the intrinsic and extrinsic parameters.
+
+<IntrinsicsExplorer />
+
+<PinholeCamera />
+
+## More In-Depth Discussions
+
+Although the pinhole camera model is the simplest camera model you can have, it provides tremendous insight into how cameras work. I will end this post with a range of more in-depth topics that I couldn't fit into the other sections.
+
+### Pixel Discretization and Depth Sensitivity
+
+The projection of a 3D point $P$ onto pixel coordinates was given by [@eq:projection_x; @eq:projection_y]. However, astute readers might have noticed that pixel coordinates are *integer* valued, while the 3D point $P$ has a real-valued position. This discretization creates a minimum displacement required to change the captured image. Specifically, a point has to move far enough that its projection lands on a different pixel.
+
+One scenario where this becomes important is when we want to estimate the depth of an object from the camera image. For example, suppose we have a reference point $P_0 = (X_0, Y_0, Z_0)$ and want to find the minimum displacement required in the $Z$ direction. Noting that $u(Z) = f_x (X_0/Z) + c_x$, the minimum displacement $\delta Z$ satisfies
+$$
+|u(Z_0 + \delta Z) - u(Z_0)| \geq 1 \implies f_x \left| \frac{X_0}{Z_0 + \delta Z} - \frac{X_0}{Z_0} \right| \geq 1,
+$$
+and a similar equation must hold for $v$. Solving for $\delta Z$ (moving away from the camera), we obtain<Sidenote>The second form expresses the constraint using only $Z_0$ and the pixel coordinates, assuming $|u_0 - c_x| > 1$. This is useful since it only involves the target depth and the position of the feature in pixel space.</Sidenote>
+$$
+\delta Z \geq \frac{Z_0^2}{|f_x X_0| - Z_0} = \frac{Z_0}{|u_0 - c_x| - 1}.
+$$
+
+For example, suppose $f_x = 933$ (as in the camera we considered previously), $Z_0 = 0.5\,\mathrm{m}$, and $X_0= 0.1\,\mathrm{m}$. Then we get
+$$
+\delta Z \geq \frac{0.5^2}{933 \cdot 0.1 - 0.5} \approx 0.0027\,\mathrm{m} = 2.7\,\mathrm{mm}.
+$$
+That is, for a point at $X_0 = 0.1\,\mathrm{m}$ and depth $Z_0=0.5\,\mathrm{m}$, the point has to move away from the camera by at least 2.7 mm for its projection to shift by one pixel. Conversely, motion along the optical axis smaller than this may not change the image at all.
+
+The analysis above computes the exact value (under the model). A simpler approach is to take the derivative of $u$:
+$$
+\frac{\partial u}{\partial Z} = -f_x \frac{X}{Z^2} \implies |\delta Z_{\min}| \approx \frac{Z_0^2}{|f_x X_0|}.
+$$
+For our example, this gives almost the same value of 2.7 mm.
+
+The interactive figure below illustrates this phenomenon, exaggerated to make it easier to see. Play around with it and see how things change!
+
+<DepthSensitivity id="depth-sensitivity" />
+
+Such an analysis becomes important when designing a robotic system. If you want to generate actions from an RGB image and the task requires some perception of depth, then your physical hardware setup limits how precisely you can estimate that depth. You can't do a precise robotic task if the RGB image looks identical regardless of what you do<Sidenote>The analysis here assumes the simple pinhole model. A realistic system might actually achieve *better* accuracy through sub-pixel estimation, which is out of scope for this article.</Sidenote>!
+
+### How to Do Calibration?
+
+One thing I deliberately left out is *how* to actually calibrate the camera and obtain the intrinsic and extrinsic parameters. A common method is to capture several images of a known calibration pattern (e.g., a checkerboard) and solve a nonlinear least-squares problem [@zhang2000]. I will discuss the details in Part 2.
+
+### Image Augmentation
+
+For modern imitation learning pipelines (such as VLAs) that map RGB images to actions, data augmentation is often used to make the policy robust to disturbances. A common data augmentation technique is *random cropping*. Given an image and a pre-specified crop size, random cropping crops the input image at a random location, generating many augmented images from a single ground-truth data point. Multiple papers have shown that random cropping (or the closely related random shift) is key to improving the performance of image-based policies [@laskin2020; @kostrikov2021], and it is standard practice in visuomotor imitation learning [@chi2023diffusion]. Mathematically speaking, data augmentation makes the policy invariant to a transformation of the input. If so, what is random cropping making the policy invariant to?
+
+For the pinhole camera model, it can easily be checked that random cropping (and subsequent resizing) corresponds to changing the intrinsic parameters, i.e., the principal point and the focal lengths. Hence, applying random crops to the input image essentially tries to make the policy invariant to changes in the camera's intrinsic parameters!
+
+Such an approach does have some limitations. Notably, it can only *decrease* the field of view: translating the image (or equivalently, changing the principal point) can only move the known pixels; it cannot *generate* the scene outside of the image. It also cannot handle changes in the extrinsic parameters. Changing the extrinsic parameters requires rendering the scene from a new camera position and orientation, which in general cannot be expressed as a simple transformation of the original image. Nevertheless, I find it very interesting that a common data augmentation technique can be connected to the camera model, giving us a richer understanding of what we are making the policy invariant to<Sidenote>For a real camera, the argument here does not strictly hold due to nonlinear lens distortion. Hence, my logic only holds approximately, but I find it interesting nonetheless.</Sidenote>.
+
+## Summary
+
+I have covered the pinhole camera model, the intrinsic and extrinsic parameters of a camera, and how this knowledge can be applied to common robotics problems such as depth sensitivity and image augmentation. However, real lenses do NOT behave like a simple pinhole camera. This leads to distortion models, another set of camera parameters, which we will discuss in the next part of this series.
+
+{/* Next: real lenses are not pinholes (Part 2). */}
