@@ -1,0 +1,80 @@
+---
+/**
+ * Side view of a pinhole camera: the slice X = 0 of <PinholeFrames />.
+ * Similar triangles give y = f·Y/Z.
+ * Drag the object; change the focal length with the slider.
+ *
+ * The markup is rendered at build time; ./pinhole-side-view.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import './camera-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'The slice X = 0 of the camera frame, seen with X pointing toward you: Z (the optical axis) to the right, Y down. Light from P passes through the optical center C and lands upside down on the sensor behind it; mirroring the sensor in front of C gives the upright virtual image plane. The two shaded triangles are similar, so y / f = Y / Z. The sensor has a fixed size, so only points inside the field of view (the blue wedge) appear in the image; a longer f narrows it. The principal point c_y is where the optical axis meets the sensor, measured from the top edge of the image (v = y + c_y); moving it slides the sensor and tilts the field of view.',
+  id,
+  number,
+} = Astro.props;
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <pinhole-side-view class="cam-fig">
+    <svg
+      class="draggable"
+      viewBox="0 0 640 300"
+      role="img"
+      aria-label="Side view of a pinhole camera projecting an object onto the sensor and onto the virtual image plane"
+      data-plot></svg>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+    <p class="status" data-out="status" role="status"></p>
+
+    <div class="controls cols-2">
+      <fieldset>
+        <label>
+          <span class="label"><span>Focal length <i>f</i></span><output data-out="f">2.50</output></span>
+          <input type="range" min="1" max="3.5" step="0.05" value="2.5" data-in="f" />
+        </label>
+        <label>
+          <span class="label"><span>Principal point <i>c</i><sub>y</sub></span><output data-out="cy">1.20</output></span>
+          <input type="range" min="0" max="2.4" step="0.05" value="1.2" data-in="cy" />
+        </label>
+        <p class="hint">Sensor height <i>h</i> = 2.40; <i>c</i><sub>y</sub> = <i>h</i>/2 centers it on the optical axis.</p>
+      </fieldset>
+      <dl class="readout">
+        <dt>Point <i>P</i>: <i>Y</i></dt>
+        <dd data-out="Y">—</dd>
+        <dt>Point <i>P</i>: depth <i>Z</i></dt>
+        <dd data-out="Z">—</dd>
+        <dt>Image <i>y</i> = <i>f</i>·<i>Y</i>/<i>Z</i></dt>
+        <dd data-out="y">—</dd>
+        <dt>Image <i>v</i> = <i>y</i> + <i>c</i><sub>y</sub></dt>
+        <dd data-out="v">—</dd>
+      </dl>
+    </div>
+    <p class="hint">Drag anywhere in the figure to move <i>P</i>. <i>Y</i> points down, so points above the axis have <i>Y</i> &lt; 0. Points outside the shaded field of view land off the sensor and do not appear in the image.</p>
+  </pinhole-side-view>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class PinholeSideViewElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountPinholeSideView } = await import('./pinhole-side-view');
+        mountPinholeSideView(this);
+      });
+    }
+  }
+
+  if (!customElements.get('pinhole-side-view')) {
+    customElements.define('pinhole-side-view', PinholeSideViewElement);
+  }
+</script>

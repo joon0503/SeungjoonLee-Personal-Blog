@@ -10,17 +10,68 @@
  *
  * Figure references ("Fig. 1") behave the same way: the popover previews the
  * figure (image and caption), and after jumping to a figure its caption shows
- * a ↩ link back to the text.
+ * a ↩ link back to the text. An interactive figure has no image, so the
+ * preview snapshots its plots (SVG) as they currently are.
  *
  * Equation references ("Eq. (1)", and \eqref links KaTeX draws inside math)
  * preview the whole displayed equation.
  */
+
+import { DRAW_EVENT } from './when-visible';
 
 const OPEN_DELAY = 120;
 const CLOSE_DELAY = 180;
 const LINKS = 'a.cite-link, a.fig-link, a.eq-link, .katex a[href^="#eq-"]';
 
 type Kind = 'ref' | 'fig' | 'eq';
+
+/** Plots narrower than this (icons in controls, ...) are left out of a figure preview. */
+const MIN_PLOT_WIDTH = 120;
+const MAX_PLOTS = 3;
+/** Presentation properties copied onto a snapshot, since the figure's own CSS does not reach the popover. */
+const SVG_STYLES = [
+  'fill',
+  'fill-opacity',
+  'stroke',
+  'stroke-width',
+  'stroke-opacity',
+  'stroke-dasharray',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'opacity',
+  'visibility',
+  'display',
+  'font-family',
+  'font-size',
+  'font-style',
+  'font-weight',
+  'text-anchor',
+  'dominant-baseline',
+  'paint-order',
+];
+
+/**
+ * A static copy of an SVG plot with its computed styles inlined, so it draws
+ * the same outside the figure: CSS variables, scoped and ancestor-dependent
+ * rules no longer apply there.
+ */
+function snapshot(svg: SVGSVGElement): SVGSVGElement {
+  const copy = svg.cloneNode(true) as SVGSVGElement;
+  const sources = [svg, ...svg.querySelectorAll<SVGElement>('*')];
+  const copies = [copy, ...copy.querySelectorAll<SVGElement>('*')];
+  sources.forEach((source, i) => {
+    const style = getComputedStyle(source);
+    const target = copies[i];
+    for (const property of SVG_STYLES) target.style.setProperty(property, style.getPropertyValue(property));
+    target.removeAttribute('id'); // url(#...) references still resolve to the figure's own defs
+  });
+  const style = getComputedStyle(svg);
+  copy.removeAttribute('class');
+  copy.setAttribute('aria-hidden', 'true');
+  copy.style.background = style.backgroundColor;
+  copy.style.borderRadius = style.borderRadius;
+  return copy;
+}
 
 export function initCitations(root: ParentNode = document): void {
   const links = [...root.querySelectorAll<HTMLAnchorElement>(LINKS)];
@@ -65,6 +116,18 @@ export function initCitations(root: ParentNode = document): void {
       thumb.className = 'popover-img';
       thumb.removeAttribute('loading');
       nodes.push(thumb);
+    } else {
+      const plots = [...entry.querySelectorAll<SVGSVGElement>('svg')]
+        // An empty plot belongs to a figure not drawn yet (see lib/when-visible.ts): caption only.
+        .filter((svg) => !svg.closest('figcaption') && svg.childElementCount > 0)
+        .filter((svg) => svg.getBoundingClientRect().width >= MIN_PLOT_WIDTH)
+        .slice(0, MAX_PLOTS);
+      if (plots.length > 0) {
+        const row = document.createElement('div');
+        row.className = 'popover-plots';
+        row.append(...plots.map(snapshot));
+        nodes.push(row);
+      }
     }
     const caption = entry.querySelector('figcaption')?.cloneNode(true) as HTMLElement | undefined;
     if (caption) {
@@ -81,6 +144,7 @@ export function initCitations(root: ParentNode = document): void {
     clearTimeout(closeTimer);
 
     popover.replaceChildren(...previewOf(link, entry));
+    if (kindOf(link) === 'fig') drawFigure(link, entry, withJump);
     if (withJump) {
       const jump = document.createElement('a');
       jump.className = 'popover-jump';
@@ -106,6 +170,24 @@ export function initCitations(root: ParentNode = document): void {
     current?.removeAttribute('aria-describedby');
     link.setAttribute('aria-describedby', popover.id);
     current = link;
+  }
+
+  /**
+   * A figure further down may not be drawn yet (lib/when-visible.ts). Ask it
+   * to draw, and refresh the preview once its plots appear.
+   */
+  function drawFigure(link: HTMLAnchorElement, entry: HTMLElement, withJump: boolean) {
+    const plots = [...entry.querySelectorAll('svg')].filter((svg) => !svg.closest('figcaption'));
+    if (!plots.some((svg) => svg.childElementCount === 0)) return;
+    const observer = new MutationObserver(() => {
+      observer.disconnect();
+      requestAnimationFrame(() => {
+        if (current === link) show(link, withJump);
+      });
+    });
+    observer.observe(entry, { childList: true, subtree: true });
+    setTimeout(() => observer.disconnect(), 3000);
+    entry.dispatchEvent(new Event(DRAW_EVENT));
   }
 
   function hide() {

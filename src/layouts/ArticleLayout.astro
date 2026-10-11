@@ -18,7 +18,7 @@ export interface Props {
 }
 
 const { article, headings, previous, next, related = [], summary } = Astro.props;
-const { title, description, date, updated, topics } = article.data;
+const { title, description, date, updated, topics, authorship } = article.data;
 const hasToc = headings.some((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label');
 ---
 
@@ -46,6 +46,19 @@ const hasToc = headings.some((h) => (h.depth === 2 || h.depth === 3) && h.slug !
           }
         </span>
       </div>
+      {
+        authorship && (
+          <aside class="authorship" aria-label="Authorship">
+            <svg class="authorship-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20l1.2-4.6L15.6 5a2 2 0 0 1 2.8 2.8L8 18.2zM13.8 6.8l2.8 2.8M4 20h16" />
+            </svg>
+            <p>
+              <span class="authorship-label">Authorship</span>
+              {authorship}
+            </p>
+          </aside>
+        )
+      }
     </header>
 
     <div class:list={['article-grid', { 'has-toc': hasToc }]}>
@@ -157,6 +170,48 @@ const hasToc = headings.some((h) => (h.depth === 2 || h.depth === 3) && h.slug !
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
     margin-top: 1.5rem;
+  }
+
+  /* Authorship note: neutral and outlined, so it reads as information about the
+     post rather than part of it (in-article emphasis uses the amber Callout). */
+  .authorship {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    margin-top: 1.25rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+  }
+
+  .authorship p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  .authorship-icon {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    margin-top: 0.15rem;
+    fill: none;
+    stroke: var(--text-faint);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .authorship-label {
+    margin-right: 0.55em;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
   }
 
   .dates {

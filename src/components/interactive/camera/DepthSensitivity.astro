@@ -1,0 +1,133 @@
+---
+/**
+ * Depth sensitivity of a pinhole camera: two points P and P′ = P + (0, 0, δZ),
+ * their rays, the pixels they light, the rendered image, and the lit column
+ * as a function of δZ.
+ *
+ * The markup is rendered at build time; ./depth-sensitivity.ts is only
+ * downloaded once the figure scrolls into view. Slider ranges and values are
+ * set there from the selected setup (exaggerated or the article's example).
+ */
+import Figure from '@/components/Figure.astro';
+import './camera-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'Two points at the same lateral position: P at depth Z₀ and P′ further away by δZ. Top: their rays to the optical center C cross the image plane, whose grid cells are the pixels, and each point lights the pixel its ray lands in (split diagonally when both land in the same one). Bottom left: the rendered image. Bottom right: the exact column u where P′ lands and the pixel it lights, as δZ grows. The image only changes when u crosses a pixel edge, so it stays identical along each step of the staircase; the dashed line is the worst-case bound δZ_min. The exaggerated setup uses a 16 × 12-pixel camera so that the pixels are visible; the article example uses the camera from the table above.',
+  id,
+  number,
+} = Astro.props;
+
+const sliders: { key: string; base: string; sub?: string; unit: string }[] = [
+  { key: 'dZ', base: 'δZ', unit: 'mm' },
+  { key: 'Z0', base: 'Z', sub: '0', unit: 'm' },
+  { key: 'X0', base: 'X', sub: '0', unit: 'm' },
+  { key: 'fx', base: 'f', sub: 'x', unit: 'px' },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <depth-sensitivity class="cam-fig">
+    <div class="chips" role="radiogroup" aria-label="Camera setup">
+      <label><input type="radio" name="preset" value="exaggerated" checked />Exaggerated</label>
+      <label><input type="radio" name="preset" value="article" />Article example</label>
+    </div>
+
+    <div class="view">
+      <div class="view-title">
+        <span>Camera frame</span><span><span data-out="grid">1 cell = 1 pixel</span> · drag to rotate</span>
+      </div>
+      <svg
+        class="draggable"
+        viewBox="0 0 640 380"
+        role="img"
+        aria-label="3D view of two points at different depths, their rays to the optical center, and the pixels they light on the image plane"
+        data-scene></svg>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Rendered image</span><span data-out="size">16 × 12 px</span></div>
+        <svg viewBox="-8 -8 656 496" role="img" aria-label="The rendered camera image with the pixels lit by the two points" data-image></svg>
+      </div>
+      <div class="view">
+        <div class="view-title">
+          <span>Column <i>u</i> of <i>P′</i> vs. <i>δZ</i></span>
+          <span><span class="swatch" style="background: var(--text-muted)"></span>exact&ensp;<span class="swatch" style="background: var(--obj-b)"></span>lit pixel</span>
+        </div>
+        <svg viewBox="0 0 480 360" role="img" aria-label="Exact column u of P′ and the pixel it lights as functions of δZ" data-plot></svg>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background: var(--obj-a)"></span><i>P</i> at depth <i>Z</i><sub>0</sub></span>
+      <span><span class="swatch" style="background: var(--obj-b)"></span><i>P′</i> at depth <i>Z</i><sub>0</sub> + <i>δZ</i></span>
+    </div>
+    <p class="status" data-out="status" aria-live="polite"></p>
+
+    <div class="split-layout">
+      <div class="controls cols-2">
+        {
+          sliders.map((s) => (
+            <label>
+              <span class="label">
+                <span>
+                  <i>{s.base}</i>
+                  {s.sub && <sub>{s.sub}</sub>} ({s.unit})
+                </span>
+                <output data-out={s.key} />
+              </span>
+              <input type="range" data-in={s.key} />
+            </label>
+          ))
+        }
+      </div>
+      <div class="readout">
+        <dl class="readout">
+          <dt>Pixel of <i>P</i></dt>
+          <dd data-out="pix0">—</dd>
+          <dt>Pixel of <i>P′</i></dt>
+          <dd data-out="pix1">—</dd>
+          <dt>(<i>Δu</i>, <i>Δv</i>)</dt>
+          <dd data-out="duv">—</dd>
+          <dt><i>δZ</i><sub>min</sub> (worst case)</dt>
+          <dd data-out="min">—</dd>
+        </dl>
+        <p class="hint">
+          Pixel (<i>k</i>, <i>l</i>) collects the light landing in [<i>k</i>, <i>k</i> + 1) × [<i>l</i>, <i>l</i> + 1). The principal point is
+          the image center.
+        </p>
+        <button type="button" data-action="reset">Reset</button>
+      </div>
+    </div>
+  </depth-sensitivity>
+</Figure>
+
+<style>
+  dd {
+    white-space: nowrap;
+  }
+</style>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class DepthSensitivityElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountDepthSensitivity } = await import('./depth-sensitivity');
+        mountDepthSensitivity(this);
+      });
+    }
+  }
+
+  if (!customElements.get('depth-sensitivity')) {
+    customElements.define('depth-sensitivity', DepthSensitivityElement);
+  }
+</script>

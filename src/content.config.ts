@@ -24,6 +24,8 @@ const blog = defineCollection({
     updated: z.coerce.date().optional(),
     topics: z.array(z.enum(TOPIC_IDS)).default([]),
     draft: z.boolean().default(false),
+    /** Optional note on how the post was made (e.g. what AI did), shown in the article header. */
+    authorship: z.string().optional(),
     /** Works cited in the body as [@key]. */
     references: z.record(z.string(), reference).default({}),
     /** Keys listed in References without being cited in the text (LaTeX \nocite). */
