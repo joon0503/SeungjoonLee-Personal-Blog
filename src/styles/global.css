@@ -436,6 +436,23 @@ a.ref-title:hover {
   margin: 0 auto 0.5rem;
 }
 
+.cite-popover .popover-plots {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 0.5rem;
+  /* The popover shrinks to its content; plots have no width of their own. */
+  width: min(24.3rem, calc(100vw - 3.7rem));
+  margin-bottom: 0.5rem;
+}
+
+.cite-popover .popover-plots svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 13rem;
+}
+
 .cite-popover .popover-caption .fig-label {
   margin-right: 0.35em;
   font-weight: 600;
@@ -672,10 +689,12 @@ a.ref-title:hover {
   font-size: 0.82em;
 }
 
-/* Tables */
+/* Tables: centered like a figure; a wide one scrolls instead. */
 .prose table {
   display: block;
+  width: fit-content;
   max-width: 100%;
+  margin-inline: auto;
   overflow-x: auto;
   border-collapse: collapse;
   font-family: var(--sans);

@@ -1,0 +1,57 @@
+---
+/**
+ * 3D drawing of the pinhole camera's frames: optical center, camera axes,
+ * image plane, principal point, image and pixel axes, and a projected point.
+ * Drag to orbit.
+ *
+ * The markup is rendered at build time; ./pinhole-frames.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import './camera-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'The pinhole camera in its own frame: X right, Y down, Z forward along the optical axis, with the optical center C at the origin. The image plane sits at distance f in front of C; the optical axis meets it at the principal point. Image coordinates (x, y) are measured from the principal point, pixel coordinates (u, v) from the top-left corner. A point P projects to p where its ray to C crosses the image plane. The shaded plane X = 0 is the slice drawn in the side view.',
+  id,
+  number,
+} = Astro.props;
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <pinhole-frames class="cam-fig">
+    <div class="view">
+      <div class="view-title"><span>Camera frame</span><span>drag to rotate · double-click to reset</span></div>
+      <svg
+        class="draggable"
+        viewBox="0 0 640 420"
+        role="img"
+        aria-label="3D diagram of a pinhole camera: optical center, camera axes, image plane, principal point, image and pixel axes, and a point projected onto the image plane"
+        data-plot></svg>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+  </pinhole-frames>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class PinholeFramesElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountPinholeFrames } = await import('./pinhole-frames');
+        mountPinholeFrames(this);
+      });
+    }
+  }
+
+  if (!customElements.get('pinhole-frames')) {
+    customElements.define('pinhole-frames', PinholeFramesElement);
+  }
+</script>
