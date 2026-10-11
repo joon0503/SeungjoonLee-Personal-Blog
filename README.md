@@ -2,7 +2,9 @@
 
 Personal technical site: long-form notes on control, linear algebra, computer vision,
 machine learning and robotics. Built with [Astro](https://astro.build), MDX and KaTeX,
-deployed as a static site to Cloudflare Pages.
+deployed as a static site to Cloudflare Workers.
+
+Live at **<https://seungjoonlee-personal-blog.sjoon0503.workers.dev>**
 
 ## Development
 

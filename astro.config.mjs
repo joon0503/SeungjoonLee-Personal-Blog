@@ -9,8 +9,7 @@ import remarkCitations from './src/lib/remark-citations.mjs';
 
 export default defineConfig({
   // Production URL. Used for canonical links, Open Graph URLs and the sitemap.
-  // Update this once the Cloudflare Pages project / custom domain is known.
-  site: 'https://seungjoonlee.pages.dev',
+  site: 'https://seungjoonlee-personal-blog.sjoon0503.workers.dev',
 
   integrations: [mdx(), sitemap()],
 
