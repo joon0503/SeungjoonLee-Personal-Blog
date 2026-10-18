@@ -1,0 +1,68 @@
+/*
+ * Extra styles for the imaging figures. They reuse the camera figures' .cam-fig
+ * styles (controls, chips, readouts) and add canvas images on top.
+ */
+
+.cam-fig.img-fig {
+  --ch-r: #d64545;
+  --ch-g: #3c9a4a;
+  --ch-b: #2f6fd0;
+  --ch-y: #8a8984;
+}
+
+:root[data-theme='dark'] .cam-fig.img-fig {
+  --ch-r: #f07b7b;
+  --ch-g: #74c47f;
+  --ch-b: #7fa9ef;
+  --ch-y: #b5b4ae;
+}
+
+/* Canvases hold images at their native resolution; CSS scales them up. */
+.img-fig canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+  border-radius: 4px;
+}
+
+.img-fig canvas.pixelated {
+  image-rendering: pixelated;
+}
+
+.img-fig canvas.pickable {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* A thin rectangle over a canvas marking the zoomed region. */
+.img-fig .zoom-host {
+  position: relative;
+}
+
+.img-fig .zoom-box {
+  position: absolute;
+  border: 1.5px solid #fff;
+  outline: 1px solid rgb(0 0 0 / 0.6);
+  pointer-events: none;
+}
+
+/* Inline monospace code values (Y = 16, DN = 4095, …). */
+.img-fig code,
+.img-fig .mono {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wrapping row of chip groups with a small caption in front. */
+.img-fig .chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.img-fig .chip-row > .label {
+  min-width: 6.5rem;
+}

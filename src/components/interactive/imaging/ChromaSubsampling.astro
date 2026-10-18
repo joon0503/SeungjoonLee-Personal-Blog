@@ -1,0 +1,115 @@
+---
+/**
+ * Chroma subsampling: Y′CbCr with the chroma planes stored at reduced
+ * resolution (4:4:4, 4:2:2, 4:2:0, 4:1:1), then upsampled back to RGB.
+ *
+ * The markup is rendered at build time; ./chroma-subsampling.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'Chroma subsampling. The image is converted from gamma-encoded R′G′B′ to Y′CbCr (BT.709, full range, 8 bit), the two chroma planes are averaged over blocks of 1 × 1, 2 × 1, 2 × 2 or 4 × 1 pixels, and the result is upsampled and converted back. Luma is never touched, so edges stay sharp; only color bleeds across them, most visibly around the ColorChecker patches in the photo, or in the saturated text and one-pixel colored stripes of the test chart. Drag on the image to move the zoomed region; the Cb and Cr views show the planes at the resolution they are actually stored. Photo: a Sigma fp 8-bit raw file from raw.pixls.us (CC0), developed with LibRaw.',
+  id,
+  number,
+} = Astro.props;
+
+const schemes = ['4:4:4', '4:2:2', '4:2:0', '4:1:1'];
+const views: [string, string][] = [
+  ['result', 'Result'],
+  ['y', 'Y′ only'],
+  ['cb', 'Cb'],
+  ['cr', 'Cr'],
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <chroma-subsampling class="cam-fig img-fig">
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span data-out="title">Result</span><span data-out="size">loading…</span></div>
+        <div class="zoom-host">
+          <canvas class="pixelated pickable" width="480" height="320" aria-label="Image after chroma subsampling" data-main></canvas>
+          <div class="zoom-box" data-zoom-box></div>
+        </div>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Zoom</span><span data-out="zoom">40 × 25 px</span></div>
+        <canvas class="pixelated" width="320" height="200" aria-label="Magnified region of the image" data-zoom></canvas>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="split-layout">
+      <div class="controls">
+        <div class="chip-row">
+          <span class="label">Scene</span>
+          <div class="chips" role="radiogroup" aria-label="Image">
+            <label><input type="radio" name="chroma-scene" value="photo" checked />Photo (Sigma fp)</label>
+            <label><input type="radio" name="chroma-scene" value="chart" />Test chart</label>
+          </div>
+        </div>
+        <div class="chip-row">
+          <span class="label">Subsampling</span>
+          <div class="chips" role="radiogroup" aria-label="Chroma subsampling scheme">
+            {schemes.map((s, i) => <label><input type="radio" name="chroma-scheme" value={s} checked={i === 2} />{s}</label>)}
+          </div>
+        </div>
+        <div class="chip-row">
+          <span class="label">Show</span>
+          <div class="chips" role="radiogroup" aria-label="Plane to show">
+            {views.map(([v, label], i) => <label><input type="radio" name="chroma-view" value={v} checked={i === 0} />{label}</label>)}
+          </div>
+        </div>
+        <div class="chip-row">
+          <span class="label">Upsampling</span>
+          <div class="chips" role="radiogroup" aria-label="Chroma upsampling filter">
+            <label><input type="radio" name="chroma-up" value="nearest" checked />Nearest</label>
+            <label><input type="radio" name="chroma-up" value="bilinear" />Bilinear</label>
+          </div>
+        </div>
+      </div>
+      <div class="readout">
+        <span class="readout-title">Chroma samples kept in a 4 × 2 block</span>
+        <svg viewBox="0 0 168 88" role="img" aria-label="Which chroma samples a 4 by 2 pixel block keeps" data-jab style="max-width: 12rem"></svg>
+        <p class="hint">Gray dot: a Y′ sample. Red dot: one Cb + Cr pair, the average over its tinted block.</p>
+        <dl class="readout">
+          <dt>Per 4 × 2 block</dt>
+          <dd data-out="samples">—</dd>
+          <dt>Bytes / pixel</dt>
+          <dd data-out="bpp">—</dd>
+          <dt>1920 × 1080 frame</dt>
+          <dd data-out="frame">—</dd>
+          <dt>At 30 fps</dt>
+          <dd data-out="rate">—</dd>
+        </dl>
+      </div>
+    </div>
+  </chroma-subsampling>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class ChromaSubsamplingElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountChromaSubsampling } = await import('./chroma-subsampling');
+        mountChromaSubsampling(this);
+      });
+    }
+  }
+
+  if (!customElements.get('chroma-subsampling')) {
+    customElements.define('chroma-subsampling', ChromaSubsamplingElement);
+  }
+</script>

@@ -1,0 +1,107 @@
+---
+/**
+ * Exposure time, gain and noise on a simulated 12-bit sensor.
+ *
+ * The markup is rendered at build time; ./exposure-simulator.ts is only
+ * downloaded once the figure scrolls into view. Slider values are positions
+ * on a 0–1000 scale; the script maps the log-scaled ones to physical values.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'A simulated 12-bit sensor (full well 10 000 e⁻, read noise 3 e⁻) looking at the test scene with a disk sliding to the right. Doubling the exposure time doubles the collected electrons, so the image gets brighter and the shot noise relatively smaller (SNR grows with √N), but the disk smears over a longer path and the maximum frame rate drops. Gain also brightens the image, but it amplifies the noise along with the signal, and since the output clips at 4095, every 6 dB of gain halves the headroom. Analog gain is applied before the ADC, so it also shrinks the share of the ADC’s own noise; digital gain multiplies the already quantized numbers, so it adds nothing but skipped codes (switch the histogram to "Shadows" to see the comb). Dim the scene, then compare a long exposure with a short exposure plus gain at the same brightness ("Keep brightness constant").',
+  id,
+  number,
+} = Astro.props;
+
+const sliders: { key: string; label: string; min: number; max: number; step: number; value: number }[] = [
+  { key: 'illum', label: 'Scene illumination', min: 0, max: 1000, step: 1, value: 667 },
+  { key: 't', label: 'Exposure time', min: 0, max: 1000, step: 1, value: 697 },
+  { key: 'gain', label: 'Analog gain', min: 0, max: 24, step: 0.5, value: 0 },
+  { key: 'dgain', label: 'Digital gain', min: 0, max: 24, step: 0.5, value: 0 },
+  { key: 'speed', label: 'Object speed', min: 0, max: 3000, step: 50, value: 1200 },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <exposure-simulator class="cam-fig img-fig">
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Sensor output</span><span>300 × 200, 12-bit</span></div>
+        <canvas width="300" height="200" role="img" aria-label="Simulated camera image of the test scene" data-image></canvas>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Histogram</span><span data-out="histRange">DN 0–4095, all channels</span></div>
+        <svg viewBox="0 0 300 200" role="img" aria-label="Histogram of the digital numbers in the image" data-hist></svg>
+        <div class="chips" role="radiogroup" aria-label="Histogram range">
+          <label><input type="radio" name="exp-hist" value="full" checked />Full range</label>
+          <label><input type="radio" name="exp-hist" value="shadows" />Shadows (DN 0–255)</label>
+        </div>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="split-layout">
+      <div class="controls cols-2">
+        {
+          sliders.map((s) => (
+            <label>
+              <span class="label">
+                <span>{s.label}</span>
+                <output data-out={s.key}>—</output>
+              </span>
+              <input type="range" min={s.min} max={s.max} step={s.step} value={s.value} data-in={s.key} />
+            </label>
+          ))
+        }
+        <label class="inline">
+          <input type="checkbox" data-in="lock" />
+          <span>Keep brightness constant (<i>t</i> × analog gain fixed)</span>
+        </label>
+      </div>
+      <div class="readout">
+        <dl class="readout">
+          <dt>Total gain</dt>
+          <dd data-out="total">—</dd>
+          <dt>Output levels used</dt>
+          <dd data-out="levels">—</dd>
+          <dt>Max frame rate</dt>
+          <dd data-out="fps">—</dd>
+          <dt>SNR, mid-gray patch</dt>
+          <dd data-out="snr">—</dd>
+          <dt>Clipped pixels</dt>
+          <dd data-out="clip">—</dd>
+          <dt>Motion blur</dt>
+          <dd data-out="blur">—</dd>
+        </dl>
+        <button type="button" data-action="reset">Reset</button>
+      </div>
+    </div>
+  </exposure-simulator>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class ExposureSimulatorElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountExposureSimulator } = await import('./exposure-simulator');
+        mountExposureSimulator(this);
+      });
+    }
+  }
+
+  if (!customElements.get('exposure-simulator')) {
+    customElements.define('exposure-simulator', ExposureSimulatorElement);
+  }
+</script>

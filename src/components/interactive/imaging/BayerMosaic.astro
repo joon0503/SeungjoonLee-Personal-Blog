@@ -1,0 +1,85 @@
+---
+/**
+ * The Bayer color filter array: which channel each photosite measures, how
+ * the pattern is named, and which neighbours bilinear demosaicing uses to
+ * fill in the two missing channels at a pixel.
+ *
+ * The markup is rendered at build time; ./bayer-mosaic.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+import { BAYER_PATTERNS } from './imaging';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'A Bayer color filter array: each photosite measures only one of red, green or blue. The pattern is named after its top-left 2 × 2 tile, read row by row. Hover or tap a pixel to see which neighbours bilinear demosaicing averages to estimate its two missing channels.',
+  id,
+  number,
+} = Astro.props;
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <bayer-mosaic class="cam-fig img-fig">
+    <div class="chip-row">
+      <span class="label">Pattern</span>
+      <div class="chips" role="radiogroup" aria-label="Bayer pattern">
+        {
+          BAYER_PATTERNS.map((p, i) => (
+            <label>
+              <input type="radio" name="bayer-pattern" value={p} checked={i === 0} />
+              {p}
+            </label>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="split-layout">
+      <div class="view">
+        <div class="view-title"><span>Sensor photosites</span><span>hover or tap a pixel</span></div>
+        <svg viewBox="0 0 420 340" role="img" aria-label="Grid of photosites colored by the Bayer filter over each" data-grid></svg>
+      </div>
+      <div class="readout">
+        <span class="readout-title">Selected pixel</span>
+        <p data-out="pixel">—</p>
+        <p class="mono" data-out="f1">—</p>
+        <p class="mono" data-out="f2">—</p>
+        <div class="legend">
+          <span><span class="swatch" style="background: var(--ch-r)"></span>R 25%</span>
+          <span><span class="swatch" style="background: var(--ch-g)"></span>G 50%</span>
+          <span><span class="swatch" style="background: var(--ch-b)"></span>B 25%</span>
+        </div>
+        <p class="hint">
+          Twice as many green sites: green carries most of the luminance the eye resolves, so it gets the
+          finest sampling.
+        </p>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+  </bayer-mosaic>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class BayerMosaicElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountBayerMosaic } = await import('./bayer-mosaic');
+        mountBayerMosaic(this);
+      });
+    }
+  }
+
+  if (!customElements.get('bayer-mosaic')) {
+    customElements.define('bayer-mosaic', BayerMosaicElement);
+  }
+</script>

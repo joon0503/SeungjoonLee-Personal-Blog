@@ -1,0 +1,120 @@
+---
+/**
+ * Full vs limited range and BT.601 vs BT.709 mismatches between the encoder
+ * and the decoder of Y′CbCr.
+ *
+ * The markup is rendered at build time; ./range-explorer.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'What happens when the encoder and the decoder disagree about Y′CbCr. The image is converted from gamma-encoded R′G′B′ to 8-bit Y′CbCr with the encoder’s range and matrix, then back with the decoder’s. Limited (“TV”) range stores black at Y′ = 16 and white at 235; full range uses 0–255. Decoding limited as full gives a washed-out image, decoding full as limited clips the shadows and highlights. The plot shows what happens to the gray ramp at the bottom of the image. A matrix mismatch leaves grays alone and shifts saturated colors instead (the red and green ColorChecker patches in the readout, or the chart and the red-lit wall in the photo). Photo: a Sigma fp 8-bit raw file from raw.pixls.us (CC0), developed with LibRaw.',
+  id,
+  number,
+} = Astro.props;
+
+const groups: { side: 'enc' | 'dec'; title: string }[] = [
+  { side: 'enc', title: 'Encoder (camera)' },
+  { side: 'dec', title: 'Decoder (viewer)' },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <range-explorer class="cam-fig img-fig">
+    <div class="chip-row">
+      <span class="label">Scene</span>
+      <div class="chips" role="radiogroup" aria-label="Image">
+        <label><input type="radio" name="range-scene" value="photo" checked />Photo (Sigma fp)</label>
+        <label><input type="radio" name="range-scene" value="chart" />Test chart</label>
+      </div>
+    </div>
+
+    <div class="controls cols-2">
+      {
+        groups.map(({ side, title }) => (
+          <fieldset>
+            <legend>{title}</legend>
+            <div class="chip-row">
+              <span class="label">Range</span>
+              <div class="chips" role="radiogroup" aria-label={`${title} range`}>
+                <label><input type="radio" name={`range-${side}-range`} value="full" checked={side === 'dec'} />Full</label>
+                <label><input type="radio" name={`range-${side}-range`} value="limited" checked={side === 'enc'} />Limited</label>
+              </div>
+            </div>
+            <div class="chip-row">
+              <span class="label">Matrix</span>
+              <div class="chips" role="radiogroup" aria-label={`${title} matrix`}>
+                <label><input type="radio" name={`range-${side}-matrix`} value="601" />BT.601</label>
+                <label><input type="radio" name={`range-${side}-matrix`} value="709" checked />BT.709</label>
+              </div>
+            </div>
+          </fieldset>
+        ))
+      }
+    </div>
+
+    <p class="status" data-out="status" style="margin-top: 0">—</p>
+
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Original</span><span>R′G′B′</span></div>
+        <canvas width="240" height="184" aria-label="Original image" data-original></canvas>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Decoded</span><span>after the round trip</span></div>
+        <canvas width="240" height="184" aria-label="Image after encoding and decoding" data-decoded></canvas>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="split-layout">
+      <div class="view">
+        <div class="view-title"><span>Gray ramp</span><span>input code → displayed code</span></div>
+        <svg viewBox="0 0 260 248" style="max-width: 20rem" role="img" aria-label="Displayed gray level as a function of the input gray level" data-plot></svg>
+      </div>
+      <div class="readout">
+        <dl class="readout">
+          <dt>Stored black / white</dt>
+          <dd data-out="stored">—</dd>
+          <dt>Stored chroma</dt>
+          <dd data-out="chroma">—</dd>
+          <dt>Displayed black / white</dt>
+          <dd data-out="shown">—</dd>
+          <dt>Red patch (ColorChecker)</dt>
+          <dd data-out="red">—</dd>
+          <dt>Green patch (ColorChecker)</dt>
+          <dd data-out="green">—</dd>
+        </dl>
+        <span class="readout-title">Encoder matrix, R′G′B′ → Y′CbCr</span>
+        <span class="matrix" data-out="matrix"></span>
+      </div>
+    </div>
+  </range-explorer>
+</Figure>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class RangeExplorerElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountRangeExplorer } = await import('./range-explorer');
+        mountRangeExplorer(this);
+      });
+    }
+  }
+
+  if (!customElements.get('range-explorer')) {
+    customElements.define('range-explorer', RangeExplorerElement);
+  }
+</script>

@@ -1,0 +1,166 @@
+---
+/**
+ * A raw capture, real (Sigma fp) or simulated, and the ISP stages that turn
+ * it into a viewable image. Each stage can be switched off to see what it does.
+ *
+ * The markup is rendered at build time; ./isp-pipeline.ts is only downloaded
+ * once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'A raw capture run through a minimal ISP; switch stages off to see what each one fixes. The real raw is an RGGB mosaic from a Sigma fp, which stores companded 8-bit codes, so it needs a linearization stage first (the file’s table expands them to 12 bits, with black level 256); the file has no lens shading data, and its white balance and color matrix are the camera’s own. Its scene is lit by a red light and a white one, so try Auto white balance. The simulated capture is a 10-bit RGGB mosaic with black level 64, color filters that overlap and favor green, and a lens that darkens the corners; change the color temperature of its light to see why white balance is needed (the illuminant colors approximate a black-body light, not measured spectra). Real raw: a Sigma fp 8-bit CinemaDNG from raw.pixls.us (CC0).',
+  id,
+  number,
+} = Astro.props;
+
+const stages: { key: string; label: string }[] = [
+  { key: 'blc', label: 'Black level' },
+  { key: 'lsc', label: 'Lens shading' },
+  { key: 'wb', label: 'White balance' },
+  { key: 'demosaic', label: 'Demosaic' },
+  { key: 'ccm', label: 'Color matrix' },
+  { key: 'gamma', label: 'Gamma' },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <isp-pipeline class="cam-fig img-fig">
+    <div class="chip-row">
+      <span class="label">Scene</span>
+      <div class="chips" role="radiogroup" aria-label="Source capture">
+        <label><input type="radio" name="isp-scene" value="raw" checked />Real raw (Sigma fp)</label>
+        <label><input type="radio" name="isp-scene" value="sim" />Simulated</label>
+      </div>
+    </div>
+    <div class="chips isp-stages" role="group" aria-label="ISP stages">
+      <span class="isp-end">Raw</span>
+      <span class="isp-group" data-raw-only>
+        <span class="isp-arrow" aria-hidden="true">→</span>
+        <label><input type="checkbox" data-in="lin" checked />0. Linearize</label>
+      </span>
+      {
+        stages.map((s, i) => (
+          <>
+            <span class="isp-arrow" aria-hidden="true">
+              →
+            </span>
+            <label>
+              <input type="checkbox" data-in={s.key} checked />
+              {i + 1}. {s.label}
+            </label>
+          </>
+        ))
+      }
+      <span class="isp-arrow" aria-hidden="true">→</span>
+      <span class="isp-end">Display</span>
+    </div>
+
+    <div class="view">
+      <div class="view-title"><span data-out="title">Output image</span><span data-out="size">300 × 200 px</span></div>
+      <canvas class="pixelated" width="480" height="320" data-canvas aria-label="The scene after the enabled ISP stages"></canvas>
+    </div>
+    <p class="status" data-out="status"></p>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="split-layout">
+      <div class="controls">
+        <label>
+          <span class="label"><span>Light color temperature</span><output data-out="cct">6500 K</output></span>
+          <input type="range" min="2500" max="7500" step="100" value="6500" data-in="cct" />
+        </label>
+        <fieldset>
+          <legend>White balance gains</legend>
+          <div class="chips" role="radiogroup" aria-label="White balance mode">
+            <label><input type="radio" name="isp-wb" value="preset" checked /><span data-out="presetLabel">As shot (camera)</span></label>
+            <label><input type="radio" name="isp-wb" value="auto" />Auto (gray world)</label>
+            <label><input type="radio" name="isp-wb" value="manual" />Manual</label>
+          </div>
+          <div class="controls cols-2">
+            <label>
+              <span class="label"><span>R gain</span><output data-out="gr">1.00</output></span>
+              <input type="range" min="0.5" max="4" step="0.01" value="1.5" data-in="gr" disabled />
+            </label>
+            <label>
+              <span class="label"><span>B gain</span><output data-out="gb">1.00</output></span>
+              <input type="range" min="0.5" max="4" step="0.01" value="1.5" data-in="gb" disabled />
+            </label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Raw mosaic shown as (demosaic off)</legend>
+          <div class="chips" role="radiogroup" aria-label="How to show the raw mosaic">
+            <label><input type="radio" name="isp-raw" value="gray" checked />Gray values</label>
+            <label><input type="radio" name="isp-raw" value="cfa" />Filter colors</label>
+          </div>
+        </fieldset>
+      </div>
+      <div class="readout">
+        <dl class="readout">
+          <dt>Light (R, G, B)</dt>
+          <dd data-out="illum">—</dd>
+          <dt>WB gains (R, G, B)</dt>
+          <dd data-out="gains">—</dd>
+        </dl>
+        <span class="readout-title">Color correction matrix</span>
+        <span class="matrix" data-out="ccm"></span>
+        <p class="hint">Rows sum to 1, so white stays white.</p>
+        <button type="button" data-action="reset">Reset</button>
+      </div>
+    </div>
+  </isp-pipeline>
+</Figure>
+
+<style>
+  .isp-stages {
+    align-items: center;
+  }
+
+  .isp-group {
+    display: contents;
+  }
+
+  .isp-group[hidden] {
+    display: none;
+  }
+
+  .chips label:has(input:disabled) {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .isp-arrow {
+    color: var(--text-faint);
+  }
+
+  .isp-end {
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+</style>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class IspPipelineElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountIspPipeline } = await import('./isp-pipeline');
+        mountIspPipeline(this);
+      });
+    }
+  }
+
+  if (!customElements.get('isp-pipeline')) {
+    customElements.define('isp-pipeline', IspPipelineElement);
+  }
+</script>

@@ -1,0 +1,122 @@
+---
+/**
+ * Demosaicing algorithms side by side on a real raw crop (Sigma fp) or the
+ * test scene: the raw Bayer mosaic, three reconstructions and, for the test
+ * scene, the ground truth, with a magnifier and the option of decoding with
+ * the wrong Bayer pattern.
+ *
+ * The markup is rendered at build time; ./demosaic-compare.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+import { BAYER_PATTERNS } from './imaging';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'An RGGB Bayer mosaic reconstructed by three demosaicing algorithms. The real raw is a native-resolution crop of the logo on a bicycle stem: the edges of the lettering show zipper artifacts and colored fringes, and there is no ground truth to compare against. The test chart is rendered, so its ground truth is known; its zone plate (rings that get finer towards the edge) exposes false color and moiré. Drag on the image to move the magnifier. Decoding with the wrong pattern swaps or scrambles the colors. Real raw: a Sigma fp 8-bit CinemaDNG from raw.pixls.us (CC0).',
+  id,
+  number,
+} = Astro.props;
+
+const algorithms = [
+  { value: 'truth', label: 'Ground truth' },
+  { value: 'raw', label: 'Raw mosaic' },
+  { value: 'nearest', label: 'Nearest neighbour' },
+  { value: 'bilinear', label: 'Bilinear' },
+  { value: 'malvar', label: 'Malvar–He–Cutler' },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <demosaic-compare class="cam-fig img-fig">
+    <div class="chip-row">
+      <span class="label">Scene</span>
+      <div class="chips" role="radiogroup" aria-label="Source image">
+        <label><input type="radio" name="demosaic-scene" value="raw" checked />Real raw (Sigma fp)</label>
+        <label><input type="radio" name="demosaic-scene" value="chart" />Test chart</label>
+      </div>
+    </div>
+    <div class="chip-row">
+      <span class="label">Show</span>
+      <div class="chips" role="radiogroup" aria-label="Demosaicing algorithm">
+        {
+          algorithms.map((a) => (
+            <label>
+              <input type="radio" name="demosaic-alg" value={a.value} checked={a.value === 'bilinear'} />
+              {a.label}
+            </label>
+          ))
+        }
+      </div>
+    </div>
+    <div class="chip-row">
+      <span class="label">Decoder assumes</span>
+      <div class="chips" role="radiogroup" aria-label="Bayer pattern assumed by the decoder">
+        {
+          BAYER_PATTERNS.map((p, i) => (
+            <label>
+              <input type="radio" name="demosaic-pattern" value={p} checked={i === 0} />
+              {p}
+            </label>
+          ))
+        }
+      </div>
+      <span class="hint">(sensor is RGGB)</span>
+    </div>
+
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Image</span><span data-out="size">drag to move the magnifier</span></div>
+        <div class="zoom-host">
+          <canvas class="pixelated pickable" width="360" height="240" aria-label="The demosaiced image" data-main></canvas>
+          <div class="zoom-box" data-zoom-box></div>
+        </div>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Magnified</span><span>48 × 32 px region</span></div>
+        <canvas width="480" height="320" aria-label="Magnified region of the image" data-zoom></canvas>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="readouts">
+      <dl class="readout">
+        <dt>PSNR vs. ground truth</dt>
+        <dd data-out="psnr">—</dd>
+      </dl>
+      <p class="status" data-out="status"></p>
+    </div>
+  </demosaic-compare>
+</Figure>
+
+<style>
+  .chips label:has(input:disabled) {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+</style>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class DemosaicCompareElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountDemosaicCompare } = await import('./demosaic-compare');
+        mountDemosaicCompare(this);
+      });
+    }
+  }
+
+  if (!customElements.get('demosaic-compare')) {
+    customElements.define('demosaic-compare', DemosaicCompareElement);
+  }
+</script>

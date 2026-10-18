@@ -1,0 +1,328 @@
+---
+/**
+ * Overview of the imaging pipeline, from light at the lens to the bytes the
+ * host receives. The stages are grouped into the sensor, the ISP and the
+ * output stage, one row each. Hovering over or clicking a stage highlights
+ * it and shows the real raw sample as it looks after that stage.
+ *
+ * The diagram is rendered at build time; ./imaging-pipeline.ts (the
+ * previews) is only downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'The imaging pipeline, from light to bytes. The sensor turns light into a raw mosaic, one color per pixel; the ISP turns the mosaic into a full-color image; the output stage packs it into a pixel format for the host. The order of the ISP stages varies between vendors. Hover over or click a stage to see the image it produces (before the gamma stage the values are linear, so they look dark). Sample: a Sigma fp 8-bit raw file from raw.pixls.us (CC0).',
+  id,
+  number,
+} = Astro.props;
+
+interface Stage {
+  key: string;
+  label: string;
+  sub?: string;
+}
+
+const rows: { title: string; sub: string; stages: Stage[] }[] = [
+  {
+    title: 'Sensor',
+    sub: 'light → numbers',
+    stages: [
+      { key: 'lens', label: 'Lens', sub: 'aperture, focus' },
+      { key: 'cfa', label: 'Color filter', sub: 'Bayer CFA' },
+      { key: 'photodiode', label: 'Photodiode', sub: 'exposure time' },
+      { key: 'gain', label: 'Analog gain', sub: 'amplifier' },
+      { key: 'adc', label: 'ADC', sub: 'quantize' },
+    ],
+  },
+  {
+    title: 'ISP',
+    sub: 'mosaic → image',
+    stages: [
+      { key: 'black', label: 'Black level', sub: 'offset' },
+      { key: 'lsc', label: 'Lens shading', sub: 'vignetting' },
+      { key: 'wb', label: 'White balance', sub: 'R, B gains' },
+      { key: 'demosaic', label: 'Demosaic', sub: '1 → 3 channels' },
+      { key: 'ccm', label: 'Color matrix', sub: 'CCM' },
+      { key: 'gamma', label: 'Gamma / tone', sub: 'transfer curve' },
+    ],
+  },
+  {
+    title: 'Output',
+    sub: 'image → bytes',
+    stages: [
+      { key: 'denoise', label: 'Denoise', sub: 'and sharpen' },
+      { key: 'ycc', label: 'RGB → Y′CbCr', sub: 'BT.601 / 709' },
+      { key: 'chroma', label: 'Subsample', sub: '4:2:2, 4:2:0' },
+      { key: 'pack', label: 'Pack / encode', sub: 'NV12, MJPEG' },
+    ],
+  },
+];
+
+/** Data format handed from one row to the next, written on the connector. */
+const handoff = ['raw mosaic · 8–12 bit', 'R′G′B′ · 8 bit per channel'];
+
+// Layout: one lane per row, stages on a shared six-column grid
+const W = 760;
+const gridX = 104; // left edge of the grid; the lane titles sit before it
+const cols = 6;
+const colGap = 14;
+const boxW = (W - gridX - 12 - colGap * (cols - 1)) / cols;
+const boxH = 44;
+const laneH = 64;
+const laneGap = 30;
+const H = rows.length * laneH + (rows.length - 1) * laneGap;
+const laneY = (r: number) => r * (laneH + laneGap);
+const boxX = (i: number) => gridX + i * (boxW + colGap);
+const boxY = (r: number) => laneY(r) + (laneH - boxH) / 2;
+const firstIndex = rows.map((_, r) => rows.slice(0, r).reduce((n, row) => n + row.stages.length, 0));
+
+/** Elbow connector from the last box of row r down to the first box of row r + 1, with rounded corners. */
+function connector(r: number): { d: string; midX: number; midY: number } {
+  const x1 = boxX(rows[r].stages.length - 1) + boxW / 2;
+  const x2 = boxX(0) + boxW / 2;
+  const y1 = boxY(r) + boxH;
+  const y2 = boxY(r + 1) - 2;
+  const ym = laneY(r) + laneH + laneGap / 2;
+  const k = 8; // corner radius
+  return {
+    d: `M${x1},${y1} V${ym - k} Q${x1},${ym} ${x1 - k},${ym} H${x2 + k} Q${x2},${ym} ${x2},${ym + k} V${y2}`,
+    midX: (x1 + x2) / 2,
+    midY: ym,
+  };
+}
+
+const host = { x: boxX(rows[2].stages.length), y: boxY(2) };
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <imaging-pipeline class="cam-fig img-fig">
+    <div class="pipe-scroll">
+      <svg class="pipe-diagram" viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Block diagram of the imaging pipeline: sensor, ISP and output stages. Each stage can be selected.">
+        <defs>
+          <marker id="pipe-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 z" fill="context-stroke"></path>
+          </marker>
+        </defs>
+        {
+          rows.map((row, r) => (
+            <g>
+              <rect class="lane" x="0" y={laneY(r)} width={W} height={laneH} rx="8" />
+              <text class="lane-title" x="16" y={laneY(r) + laneH / 2 - 3}>
+                {row.title}
+              </text>
+              <text class="lane-sub" x="16" y={laneY(r) + laneH / 2 + 12}>
+                {row.sub}
+              </text>
+            </g>
+          ))
+        }
+        {
+          rows.slice(0, -1).map((_, r) => {
+            const c = connector(r);
+            const label = handoff[r];
+            const lw = label.length * 5.6 + 14;
+            return (
+              <g>
+                <path class="link" data-after={firstIndex[r] + rows[r].stages.length - 1} d={c.d} marker-end="url(#pipe-arrow)" />
+                <rect class="handoff-bg" x={c.midX - lw / 2} y={c.midY - 8} width={lw} height="16" rx="8" />
+                <text class="handoff" x={c.midX} y={c.midY + 3.5}>
+                  {label}
+                </text>
+              </g>
+            );
+          })
+        }
+        {
+          rows.map((row, r) =>
+            row.stages.map((s, i) => {
+              const x = boxX(i);
+              const y = boxY(r);
+              const n = firstIndex[r] + i;
+              const last = i === row.stages.length - 1;
+              return (
+                <g>
+                  <g class="stage" data-stage={s.key} tabindex="0" role="button" aria-pressed={n === 0 ? 'true' : 'false'} aria-label={`${n + 1}. ${s.label}`}>
+                    <rect x={x} y={y} width={boxW} height={boxH} rx="6" />
+                    <text class="stage-label" x={x + boxW / 2} y={y + 19}>
+                      {s.label}
+                    </text>
+                    <text class="stage-sub" x={x + boxW / 2} y={y + 33}>
+                      {s.sub}
+                    </text>
+                  </g>
+                  {(!last || r === rows.length - 1) && (
+                    <path class="link" data-after={n} d={`M${x + boxW + 1},${y + boxH / 2} H${x + boxW + colGap - 1}`} marker-end="url(#pipe-arrow)" />
+                  )}
+                </g>
+              );
+            }),
+          )
+        }
+        <g class="host">
+          <rect x={host.x} y={host.y} width={boxW} height={boxH} rx="6" />
+          <text class="stage-label" x={host.x + boxW / 2} y={host.y + 19}>Host</text>
+          <text class="stage-sub" x={host.x + boxW / 2} y={host.y + 33}>USB, MIPI CSI-2</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="view">
+      <div class="view-title"><span data-out="title">After: Lens</span><span data-out="step">1 / 15</span></div>
+      <canvas width="480" height="320" data-canvas aria-label="The sample image after the selected stage"></canvas>
+      <pre class="pipe-bytes mono" data-bytes hidden></pre>
+    </div>
+    <noscript><p class="fallback">The stage previews require JavaScript.</p></noscript>
+  </imaging-pipeline>
+</Figure>
+
+<style>
+  /* On narrow screens the diagram keeps a legible size and scrolls sideways */
+  .pipe-scroll {
+    overflow-x: auto;
+  }
+
+  .pipe-diagram {
+    min-width: 560px;
+    background: none;
+    overflow: visible;
+  }
+
+  .lane {
+    fill: var(--bg-subtle);
+  }
+
+  .lane-title {
+    font-size: 12.5px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    fill: var(--text);
+  }
+
+  .lane-sub {
+    font-size: 10px;
+    fill: var(--text-muted);
+  }
+
+  .stage {
+    cursor: pointer;
+    outline: none;
+  }
+
+  .stage rect,
+  .host rect {
+    fill: var(--bg);
+    stroke: var(--border-strong);
+    stroke-width: 1;
+    transition:
+      fill 0.15s,
+      stroke 0.15s;
+  }
+
+  .host rect {
+    stroke-dasharray: 4 3;
+  }
+
+  .stage-label,
+  .stage-sub {
+    text-anchor: middle;
+    transition: fill 0.15s;
+  }
+
+  .stage-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    fill: var(--text);
+  }
+
+  .stage-sub {
+    font-size: 9.5px;
+    fill: var(--text-muted);
+  }
+
+  .host text {
+    fill: var(--text-muted);
+  }
+
+  .link {
+    fill: none;
+    stroke: var(--text-faint);
+    stroke-width: 1.25;
+    transition: stroke 0.15s;
+  }
+
+  .handoff-bg {
+    fill: var(--bg);
+    stroke: var(--border);
+  }
+
+  .handoff {
+    font-family: var(--mono) !important;
+    font-size: 9.5px;
+    text-anchor: middle;
+    fill: var(--text-muted);
+  }
+
+  .stage:hover rect,
+  .stage:focus-visible rect {
+    stroke: var(--accent);
+  }
+
+  .stage:focus-visible rect {
+    stroke-width: 2;
+  }
+
+  /* Stages the image has already been through, and the links between them */
+  .stage.done rect {
+    fill: color-mix(in srgb, var(--accent) 10%, var(--bg));
+    stroke: color-mix(in srgb, var(--accent) 55%, var(--bg));
+  }
+
+  .link.done {
+    stroke: var(--accent);
+  }
+
+  .stage[aria-pressed='true'] rect {
+    fill: var(--accent);
+    stroke: var(--accent);
+  }
+
+  .stage[aria-pressed='true'] text {
+    fill: var(--bg);
+  }
+
+  .pipe-bytes {
+    margin: 0;
+    padding: 0.5rem 0.6rem;
+    overflow-x: auto;
+    line-height: 1.5;
+    background: var(--bg-subtle);
+    border-radius: 4px;
+  }
+</style>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class ImagingPipelineElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountImagingPipeline } = await import('./imaging-pipeline');
+        mountImagingPipeline(this);
+      });
+    }
+  }
+
+  if (!customElements.get('imaging-pipeline')) {
+    customElements.define('imaging-pipeline', ImagingPipelineElement);
+  }
+</script>

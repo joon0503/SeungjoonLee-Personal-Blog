@@ -1,0 +1,313 @@
+---
+title: 'From Photons to Pixels: Exposure, the ISP, and Pixel Formats'
+description: 'What happens between the light hitting the sensor and the bytes arriving at your program'
+date: 2026-10-18
+topics: [computer-vision, robotics]
+draft: true
+authorship: 'The main text of this post is written by me, with AI used for basic editing such as grammar and spelling mistakes as well as finding necessary references. The interactive figures were all coded by an AI agent.'
+references:
+  bayer1976:
+    author: B. E. Bayer
+    title: Color Imaging Array
+    venue: U.S. Patent 3,971,065
+    year: 1976
+    url: https://patents.google.com/patent/US3971065A
+  ramanath2005:
+    author: [R. Ramanath, W. E. Snyder, Y. Yoo, M. S. Drew]
+    title: Color Image Processing Pipeline
+    venue: IEEE Signal Processing Magazine, 22(1), 34–43
+    year: 2005
+    doi: 10.1109/MSP.2005.1407713
+  malvar2004:
+    author: [H. S. Malvar, L. He, R. Cutler]
+    title: High-Quality Linear Interpolation for Demosaicing of Bayer-Patterned Color Images
+    venue: IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)
+    year: 2004
+    doi: 10.1109/ICASSP.2004.1326587
+  poynton2012:
+    author: C. Poynton
+    title: 'Digital Video and HD: Algorithms and Interfaces'
+    venue: Morgan Kaufmann, 2nd ed.
+    year: 2012
+  bt601:
+    author: ITU-R
+    title: 'Recommendation BT.601: Studio Encoding Parameters of Digital Television for Standard 4:3 and Wide-Screen 16:9 Aspect Ratios'
+    venue: International Telecommunication Union
+    url: https://www.itu.int/rec/R-REC-BT.601
+  bt709:
+    author: ITU-R
+    title: 'Recommendation BT.709: Parameter Values for the HDTV Standards for Production and International Programme Exchange'
+    venue: International Telecommunication Union
+    url: https://www.itu.int/rec/R-REC-BT.709
+  emva1288:
+    author: European Machine Vision Association
+    title: 'EMVA Standard 1288: Standard for Characterization of Image Sensors and Cameras'
+    venue: EMVA
+    url: https://www.emva.org/standards-technology/emva-1288/
+  rawpixls-sigmafp:
+    author: raw.pixls.us contributors
+    title: 'Sigma fp, 8-bit CinemaDNG, cinema mode 4K (A002_650_20240229_000001_4k_8bit.DNG)'
+    venue: 'raw.pixls.us, CC0 1.0 public domain dedication'
+    year: 2024
+    url: https://raw.pixls.us/getfile.php/7283/nice/Sigma%20-%20fp%20-%208bit%20(16:9).DNG
+    note: 'sha256 b7e44ca41c5c5a01324967b2bd86175c7534f3df98cc3724d02edd29adb1942b'
+  minutephysics-iso:
+    author: minutephysics
+    title: Do *you* understand ISO?
+    venue: YouTube
+    url: https://www.youtube.com/watch?v=ZWSvHBG7X0w
+  libraw:
+    author: LibRaw LLC
+    title: 'LibRaw: a library for reading RAW files from digital cameras'
+    venue: libraw.org
+    url: https://www.libraw.org/
+  v4l2-pixfmt:
+    author: The Linux Kernel documentation
+    title: 'Video for Linux API: Image Formats'
+    venue: docs.kernel.org
+    url: https://docs.kernel.org/userspace-api/media/v4l/pixfmt.html
+# Listed under References until they are cited in the text; move a key into the text as [@key] and drop it here.
+nocite: [bayer1976, ramanath2005, malvar2004, poynton2012, bt601, bt709, emva1288, v4l2-pixfmt, minutephysics-iso]
+---
+
+import ImagingPipeline from '@/components/interactive/imaging/ImagingPipeline.astro';
+import ExposureSimulator from '@/components/interactive/imaging/ExposureSimulator.astro';
+import BayerMosaic from '@/components/interactive/imaging/BayerMosaic.astro';
+import DemosaicCompare from '@/components/interactive/imaging/DemosaicCompare.astro';
+import IspPipeline from '@/components/interactive/imaging/IspPipeline.astro';
+import ChromaSubsampling from '@/components/interactive/imaging/ChromaSubsampling.astro';
+import YuvLayout from '@/components/interactive/imaging/YuvLayout.astro';
+import RangeExplorer from '@/components/interactive/imaging/RangeExplorer.astro';
+
+{/*
+  DRAFT. Each section has a TODO comment listing what to discuss; the figures are already placed.
+  Comments like this one do not render, so the dev preview shows only headings and figures.
+  Possible follow-ups (separate posts): image compression (MJPEG, H.264/H.265), bandwidth and
+  transport (USB2/USB3, MIPI CSI-2, GigE), autofocus, HDR and rolling-shutter artifacts.
+*/}
+
+## Introduction
+
+The camera pose series started from the point where we already have an image (specifically a RGB image), and I mentioned I will write a separate post on the lower-level parts of the camera. This is the post that dives into the low-level details such as camera sensors, image processing by ISP and pixel formats. These topics are genuinely interesting by themselves, so I did spent quite a bit of time digging into the technical details. However, as a robotics engineer, these knowledge have helped me on various occasions such as choosing gain and exposure, fixing "colors look wrong" issues, and picking a pixel format such that data fits on USB bandwidth. These decisions are becoming more important since camera images are essential part of the modern learning-based approach, and how image looks like may change how traning and inference is done, and ultimately whether task succeeds or fails.
+
+In this post, I will focus on the process that happens between photon hitting a sensor, and us getting bytes. How those bytes affect downstream tasks will be covered in the future.
+
+{/* TODO
+  - Personal motivation: Part 1 of the camera pose series started "from the point where you already have an
+    image" and promised a separate post on the lower-level parts. This is that post.
+  - Why a robotics engineer should care: choosing exposure/gain for a moving robot, debugging "the colors look
+    wrong" / "the image is washed out", picking a pixel format that fits the USB bandwidth, reading a sensor datasheet.
+  - The image your program receives is the product of many choices made before it (some by you, most by the ISP).
+  - Scope: sensor → ISP → pixel format. Not covered: compression, transport, lens design.
+*/}
+
+<ImagingPipeline id="pipeline" />
+
+{/* TODO: walk through [@fig:pipeline] in one paragraph; each row is one main section below. Suggest stepping
+    through the stages with Next to watch the raw frame turn into the final image. */}
+
+## The Sensor: Turning Light into Numbers
+
+{/* TODO
+  - A sensor is a grid of photosites. Each converts photons → electrons (quantum efficiency),
+    stores them up to the full-well capacity, and the charge is read out as a voltage.
+  - CMOS vs CCD in one or two sentences (CMOS is what you will meet in practice).
+  - The sensor only counts photons: it has no notion of color (sets up the Bayer section).
+  - Global vs rolling shutter: maybe a short aside or Sidenote, since it matters for moving robots.
+*/}
+
+### Exposure Time
+
+{/* TODO
+  - How long the photosites integrate light. Doubling it doubles the signal ("one stop").
+  - Trade-offs: motion blur, maximum frame rate (exposure ≤ frame period), flicker under mains-powered lighting
+    (50/60 Hz → exposure in multiples of 10 ms / 8.33 ms).
+  - Auto exposure (AE): what it optimizes, and why you often want to lock it for vision algorithms.
+*/}
+
+### Gain and ISO
+
+{/* TODO
+  - Analog gain (amplifier before the ADC) vs digital gain (multiplication after it). Units: dB vs ×. ISO as the
+    photographic equivalent.
+  - Why analog gain is preferred: it amplifies the signal before the ADC's own noise and quantization are added,
+    so those shrink relative to the signal. Digital gain multiplies the quantized numbers: it cannot add
+    information, it skips codes (fewer effective bits) and is equivalent to brightening in post-processing.
+    Typical sensors use analog gain up to some limit (e.g. 16×), then switch to digital.
+  - Gain does not add light: it amplifies signal and noise together, and reduces headroom (clipping).
+    A good visual explanation of what ISO does (and does not) change [@minutephysics-iso].
+  - Same brightness from long exposure + low gain vs short exposure + high gain: blur vs noise.
+*/}
+
+### Noise and Dynamic Range
+
+{/* TODO
+  - Noise sources: photon shot noise (√N, Poisson), read noise, dark current, quantization.
+  - SNR as a function of signal; why shot noise dominates in bright light and read noise in the dark.
+  - Full-well capacity / read noise → dynamic range; ADC bit depth (10, 12 bit) and clipping.
+  - Mention EMVA 1288 [@emva1288] as the standard way sensors are characterized.
+  - Optional equations: N_e = QE · Φ · t, σ² = N_e + σ_read², SNR = N_e / σ.
+*/}
+
+<ExposureSimulator id="exposure" />
+
+{/* TODO: guide the reader through [@fig:exposure]: dim the scene, then compare long exposure vs high gain
+    with "keep brightness constant" on; watch the moving object, the noise and the histogram.
+    Then compare 18 dB of analog gain with 18 dB of digital gain in a dim scene: same brightness, but digital gain
+    has slightly lower SNR and, with the histogram on "Shadows", a comb of skipped codes (only ~1 in 8 levels used). */}
+
+## Seeing Color: The Bayer Pattern
+
+{/* TODO
+  - A color filter array (CFA) over the photosites: each pixel measures only one of R, G, B [@bayer1976].
+  - Why twice as many green pixels: the eye's luminance sensitivity peaks in green, so green carries most of the
+    detail.
+  - The four orderings RGGB, BGGR, GRBG, GBRG: the name is the top-left 2 × 2 tile. Flipping or cropping the
+    image by one pixel changes the pattern (a common source of bugs).
+  - Other CFAs in passing (RCCB, RGB-IR, Fuji X-Trans, monochrome sensors) maybe as a Sidenote.
+*/}
+
+<BayerMosaic id="bayer" />
+
+### Raw Formats
+
+{/* TODO
+  - What a "raw" frame is: one 8/10/12-bit value per pixel, no color yet.
+  - Packing: RAW8, RAW10/RAW12 unpacked in 16-bit containers vs packed (e.g. MIPI CSI-2 RAW10: 4 pixels in 5 bytes).
+  - V4L2 names: SRGGB10, SBGGR8, … [@v4l2-pixfmt].
+  - Real example: the Sigma fp frame used in the figures stores 8-bit codes, and the DNG's linearization table
+    expands them to 12 bits (black level 256, white 4095). The table is piecewise linear: steps of 4 DN in the
+    shadows, 32–73 DN in the highlights. Same idea as gamma, and as the PWL companding of HDR automotive /
+    machine-vision sensors: spend the codes where shot noise is small.
+*/}
+
+### Demosaicing
+
+{/* TODO
+  - Problem statement: reconstruct three channels per pixel from one. Two thirds of the image is interpolated.
+  - Nearest neighbour → bilinear → gradient-corrected (Malvar–He–Cutler [@malvar2004]) → edge-directed
+    (Hamilton–Adams, AHD) → learned methods. Short description and the main idea of each.
+  - Artifacts: zipper effect on edges, false color, moiré on fine repetitive detail (and why optical low-pass
+    filters exist).
+  - Practical: OpenCV's cv::COLOR_Bayer* naming (its BG/RG names follow a different convention from the
+    sensor-style names used here; worth double-checking against the docs) and what a wrong pattern looks like.
+*/}
+
+{/* TODO: keep (or rephrase) the attribution below; it must stay somewhere visible before the first real-raw figure. */}
+
+The real-world examples in this post use an 8-bit raw frame from a Sigma fp cinema camera, shared on raw.pixls.us
+under the CC0 public domain dedication [@rawpixls-sigmafp]; the developed reference image was made with
+LibRaw [@libraw].
+
+<DemosaicCompare id="demosaic" />
+
+{/* TODO: point out in [@fig:demosaic] the zone plate (moiré, false color), the edges (zipper), and the
+    "decoder assumes" mismatch. */}
+
+## The Image Signal Processor
+
+{/* TODO
+  - What an ISP is and where it lives: on the sensor module, in the SoC (e.g. phone, Jetson), or in software
+    (libcamera, dcraw/RawTherapee). USB/UVC cameras usually do it all on board, so you receive the finished
+    result. [@ramanath2005] is a good overview.
+  - The ISP order in [@fig:pipeline]. Most stages operate on linear data before gamma; why the order matters.
+*/}
+
+### Black Level and Lens Shading
+
+{/* TODO
+  - Black level: the sensor reports a nonzero value with no light (e.g. 64 of 1023). Subtract before anything
+    multiplicative.
+  - Defective (hot/dead) pixel correction, briefly.
+  - Lens shading / vignetting: the image gets darker toward the corners (cos⁴ law, microlens angle); corrected
+    by a per-pixel gain map, often per channel (color shading).
+*/}
+
+### White Balance
+
+{/* TODO
+  - The same white object looks different under tungsten (~2700 K) and daylight (~6500 K) light. The eye adapts;
+    the sensor does not.
+  - White balance = per-channel gains (usually G fixed at 1, scale R and B), applied on raw data.
+  - Auto white balance (AWB): gray-world, white-patch, and more; why it fails on scenes dominated by one color.
+  - Why to fix white balance (and exposure) for vision and data collection: consistency across frames.
+*/}
+
+### Color Correction and Gamma
+
+{/* TODO
+  - Camera RGB is not sRGB: the filter responses overlap. A 3 × 3 color correction matrix (CCM) maps camera RGB
+    to a standard color space; calibrated with a color chart.
+  - Gamma / transfer function: encode nonlinearly so that 8 bits are spent where the eye can see differences.
+    sRGB curve; linear vs gamma-encoded values (and why you should linearize before doing physics, e.g. blending
+    or photometric computations).
+  - Tone mapping, denoising, and sharpening in a sentence each.
+*/}
+
+<IspPipeline id="isp" />
+
+{/* TODO: suggested experiments with [@fig:isp]: turn off each stage in turn; change the color temperature
+    with white balance off, then with auto. On the real raw, Auto (gray world) fails on the red-lit wall: a
+    concrete case of AWB breaking on a scene dominated by one color. */}
+
+## From RGB to YUV
+
+{/* TODO
+  - Why separate brightness from color: compatibility with black-and-white TV historically; today, because the
+    eye is much more sensitive to luminance detail than to chroma detail, which enables chroma subsampling.
+  - Y′CbCr is computed from gamma-encoded R′G′B′ (the prime); "YUV" is the common, loose name.
+  - The conversion: Y′ = K_R R′ + K_G G′ + K_B B′, Cb and Cr as scaled B′ − Y′ and R′ − Y′.
+    BT.601 (K_R = 0.299, K_B = 0.114) vs BT.709 (K_R = 0.2126, K_B = 0.0722) [@bt601; @bt709].
+*/}
+
+### Full Range vs Limited Range
+
+{/* TODO
+  - Limited ("TV", "video", "studio") range: Y′ ∈ [16, 235], Cb/Cr ∈ [16, 240] for 8 bit; full ("PC", "JPEG")
+    range uses [0, 255]. Origin: headroom/footroom for analog over/undershoot.
+  - Symptoms of a mismatch: washed-out image (limited decoded as full) and crushed blacks/clipped whites (full
+    decoded as limited). Matrix mismatch (601 vs 709): subtle hue shifts in saturated reds and greens.
+  - Where the flag lives: V4L2 quantization / colorspace fields, FFmpeg's `-color_range`, JPEG (always full),
+    and what OpenCV's cvtColor assumes.
+*/}
+
+<RangeExplorer id="range" />
+
+### Chroma Subsampling
+
+{/* TODO
+  - J:a:b notation (4:4:4, 4:2:2, 4:2:0, 4:1:1) and what it means for a 4 × 2 block.
+  - Bytes per pixel: 3 → 2 → 1.5. Bandwidth example: 1080p30 in RGB24 vs YUYV vs NV12, and why it matters over
+    USB 2.0 (and why many cameras fall back to MJPEG).
+  - Where it shows: sharp colored edges and colored text. Chroma siting (where the chroma sample sits) briefly.
+*/}
+
+<ChromaSubsampling id="chroma" />
+
+### Pixel Formats in Memory
+
+{/* TODO
+  - Packed (YUYV/YUY2, UYVY), planar (I420, YV12), and semi-planar (NV12, NV21) layouts; RGB24 vs BGR24
+    (OpenCV's default BGR).
+  - Frame size formulas (w·h·2 for 4:2:2, w·h·3/2 for 4:2:0), stride/pitch and row padding.
+  - Where you will meet each: UVC webcams (YUYV, MJPEG), hardware video encoders/decoders and GPUs (NV12),
+    ROS sensor_msgs/Image encodings, FourCC codes.
+*/}
+
+<YuvLayout id="yuv-layout" />
+
+## Practical Checklist
+
+{/* TODO
+  - Lock exposure, gain and white balance for vision and data collection; set exposure from the fastest motion
+    you need to freeze, then add gain.
+  - Know your pixel format, color matrix and range end to end: camera → driver → decoder → your code.
+  - Common bugs: RGB/BGR swap, wrong Bayer pattern, limited/full mismatch, ignoring stride, treating
+    gamma-encoded values as linear.
+  - Tools: v4l2-ctl --list-formats-ext, ffprobe, OpenCV cvtColor codes.
+*/}
+
+## Summary
+
+{/* TODO: short recap of the three stages, and a pointer to the camera pose series (Part 2) and the
+    follow-up posts listed at the top. */}

@@ -1,0 +1,170 @@
+---
+/**
+ * Memory layout of common pixel formats (RGB24, BGR24, YUYV, UYVY, NV12,
+ * NV21, I420, YV12) for a 4 × 4 image, with pixel ↔ byte highlighting.
+ *
+ * The markup is rendered at build time; ./yuv-layout.ts is only downloaded
+ * once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'How a 4 × 4 image is laid out in memory in common pixel formats. Each box is one byte, in memory order, wrapped at the end of each image row (the stride, here without padding). Hover over or tap a pixel to see every byte it is built from, or a byte to see which pixels share it: in the 4:2:2 formats one U and one V byte serve a horizontal pair of pixels, in the 4:2:0 formats a 2 × 2 block. The YUV values are Y′CbCr computed from the gamma-encoded R′G′B′ pixels (BT.601, limited range).',
+  id,
+  number,
+} = Astro.props;
+
+const formats = ['RGB24', 'BGR24', 'YUYV', 'UYVY', 'NV12', 'NV21', 'I420', 'YV12'];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <yuv-layout class="cam-fig img-fig">
+    <div class="chips" role="radiogroup" aria-label="Pixel format">
+      {formats.map((f, i) => <label><input type="radio" name="yuv-format" value={f} checked={i === 4} />{f}</label>)}
+    </div>
+
+    <div class="yuv-body">
+      <div class="view">
+        <div class="view-title"><span>Image</span><span>4 × 4 px</span></div>
+        <div class="yuv-pixels" data-pixels></div>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Memory</span><span data-out="total">—</span></div>
+        <div class="yuv-memory" data-memory></div>
+      </div>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <p class="status" data-out="status" style="margin-top: 0">Hover over a pixel or a byte.</p>
+
+    <div class="readouts">
+      <dl class="readout">
+        <dt>Layout</dt>
+        <dd data-out="layout">—</dd>
+        <dt>Subsampling</dt>
+        <dd data-out="sub">—</dd>
+        <dt>Bytes / pixel</dt>
+        <dd data-out="bpp">—</dd>
+        <dt>Frame size</dt>
+        <dd data-out="formula">—</dd>
+      </dl>
+      <p class="hint" data-out="about" style="max-width: 24rem"></p>
+    </div>
+  </yuv-layout>
+</Figure>
+
+<style is:global>
+  yuv-layout .yuv-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  @media (min-width: 40rem) {
+    yuv-layout .yuv-body {
+      grid-template-columns: 9rem minmax(0, 1fr);
+    }
+  }
+
+  yuv-layout .yuv-pixels {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    max-width: 9rem;
+  }
+
+  yuv-layout .yuv-px {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+
+  yuv-layout .yuv-memory {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  yuv-layout .yuv-plane {
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  yuv-layout .yuv-row {
+    display: grid;
+    grid-template-columns: 2rem repeat(var(--cols, 12), minmax(0, 2.6rem));
+    gap: 2px;
+    align-items: center;
+  }
+
+  yuv-layout .yuv-off {
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+  }
+
+  yuv-layout .yuv-byte {
+    --c: var(--ch-y);
+    padding: 0.15rem 0;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    text-align: center;
+    color: var(--text);
+    background: color-mix(in srgb, var(--c) 20%, transparent);
+    border-bottom: 2px solid var(--c);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+
+  yuv-layout .yuv-byte sub {
+    font-size: 0.75em;
+    line-height: 0;
+  }
+
+  /* While something is hovered, fade everything that is not part of it. */
+  yuv-layout .active .yuv-byte:not(.on),
+  yuv-layout .active .yuv-px:not(.on) {
+    opacity: 0.25;
+  }
+
+  yuv-layout .yuv-byte.on {
+    background: color-mix(in srgb, var(--c) 45%, transparent);
+  }
+
+  yuv-layout .yuv-px.on {
+    outline-color: var(--text);
+  }
+</style>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class YuvLayoutElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountYuvLayout } = await import('./yuv-layout');
+        mountYuvLayout(this);
+      });
+    }
+  }
+
+  if (!customElements.get('yuv-layout')) {
+    customElements.define('yuv-layout', YuvLayoutElement);
+  }
+</script>
