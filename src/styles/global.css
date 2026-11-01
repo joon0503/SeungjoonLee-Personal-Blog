@@ -675,6 +675,10 @@ a.ref-title:hover {
   margin-bottom: 0;
 }
 
+.prose .callout > .callout-label + * {
+  margin-top: 0;
+}
+
 .prose .callout mark {
   background: none;
   font-weight: 600;
