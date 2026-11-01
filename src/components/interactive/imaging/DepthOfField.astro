@@ -1,0 +1,113 @@
+---
+/**
+ * Depth of field of a thin lens: blur (in pixels) against object distance,
+ * from defocus and from diffraction, with the range that stays acceptably
+ * sharp. A schematic ray diagram shows the blur spot of one object point.
+ *
+ * The markup is rendered at build time; ./depth-of-field.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'Depth of field of a thin lens. A point that is not at the focus distance is imaged as a disk (left, blur exaggerated); its diameter in pixels is plotted against distance on the right, together with the diffraction spot, which depends only on the f-number. Everything below the acceptable blur (shaded) looks sharp. Opening the aperture (smaller f-number) lets in more light but narrows the sharp range; closing it widens the range until diffraction blurs everything. Drag on the plot to move the object point. The defaults are a typical small robot camera: 6 mm lens, 3 µm pixels.',
+  id,
+  number,
+} = Astro.props;
+
+const sliders: { key: string; label: string; min: number; max: number; step: number; value: number }[] = [
+  { key: 'f', label: 'Focal length', min: 0, max: 1000, step: 1, value: 341 },
+  { key: 'n', label: 'Aperture', min: 0, max: 8, step: 1, value: 1 },
+  { key: 's', label: 'Focus distance', min: 0, max: 1000, step: 1, value: 371 },
+  { key: 'pitch', label: 'Pixel pitch', min: 1, max: 6, step: 0.1, value: 3 },
+  { key: 'coc', label: 'Acceptable blur', min: 1, max: 4, step: 0.5, value: 2 },
+  { key: 'd', label: 'Object distance', min: 0, max: 1000, step: 1, value: 274 },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <depth-of-field class="cam-fig img-fig">
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Lens and sensor</span><span>not to scale</span></div>
+        <svg viewBox="0 0 360 220" role="img" aria-label="Ray diagram: an object point imaged through the aperture onto the sensor" data-rays></svg>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Blur on the sensor</span><span>pixels vs distance</span></div>
+        <svg class="draggable" viewBox="0 0 360 220" role="img" aria-label="Plot of blur diameter in pixels against object distance" data-plot></svg>
+      </div>
+    </div>
+    <p class="status" data-out="status"></p>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="split-layout">
+      <div class="controls cols-2">
+        {
+          sliders.map((s) => (
+            <label>
+              <span class="label">
+                <span>{s.label}</span>
+                <output data-out={s.key}>—</output>
+              </span>
+              <input type="range" min={s.min} max={s.max} step={s.step} value={s.value} data-in={s.key} />
+            </label>
+          ))
+        }
+      </div>
+      <div class="readout">
+        <dl class="readout">
+          <dt>Sharp from</dt>
+          <dd data-out="near">—</dd>
+          <dt>Sharp to</dt>
+          <dd data-out="far">—</dd>
+          <dt>Hyperfocal distance</dt>
+          <dd data-out="hyper">—</dd>
+          <dt>Diffraction spot</dt>
+          <dd data-out="airy">—</dd>
+          <dt>Blur at the object</dt>
+          <dd data-out="blur">—</dd>
+          <dt>Light vs f/2</dt>
+          <dd data-out="light">—</dd>
+        </dl>
+        <div class="dof-buttons">
+          <button type="button" data-action="hyper">Focus at hyperfocal</button>
+          <button type="button" data-action="reset">Reset</button>
+        </div>
+      </div>
+    </div>
+  </depth-of-field>
+</Figure>
+
+<style>
+  .dof-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+</style>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class DepthOfFieldElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountDepthOfField } = await import('./depth-of-field');
+        mountDepthOfField(this);
+      });
+    }
+  }
+
+  if (!customElements.get('depth-of-field')) {
+    customElements.define('depth-of-field', DepthOfFieldElement);
+  }
+</script>

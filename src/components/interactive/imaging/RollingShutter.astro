@@ -1,0 +1,148 @@
+---
+/**
+ * Global vs rolling shutter: the same moving scene captured with every row
+ * exposed at once, and with rows exposed one after another, plus a timing
+ * diagram of the exposure windows.
+ *
+ * The markup is rendered at build time; ./rolling-shutter.ts is only
+ * downloaded once the figure scrolls into view.
+ */
+import Figure from '@/components/Figure.astro';
+import '../camera/camera-figures.css';
+import './imaging-figures.css';
+
+export interface Props {
+  caption?: string;
+  /** Figure label and number; see Figure.astro. */
+  id?: string;
+  number?: number | string;
+}
+
+const {
+  caption = 'The same scene captured with a global shutter (every row exposed over the same interval) and a rolling shutter (each row starts a little later than the one above, spread over the readout time). For the propeller, the scan-line view marks the row being read (Video plays both cameras frame by frame instead): the global image is a snapshot taken at that moment, so the marked row is the same in both images, and the rolling image is assembled from one such row per instant. The timing diagram shows the exposure window of every row. Under a rolling shutter a spinning propeller bends, and a light flickering at twice the mains frequency leaves horizontal bands, unless the exposure lasts a whole number of flicker cycles (multiples of 8.33 ms on 60 Hz mains; the slider snaps to them). In that scene the diagram shows the light each row collects, the area under the light curve during its exposure, for the brightest and darkest rows and for the single window of the global shutter, and the resulting brightness of every row on the right. Over whole cycles every row collects the same amount. A global shutter never shows bands, since all rows share one window, but unless the exposure covers whole cycles the brightness of the whole frame changes from frame to frame (press Play). A shorter exposure removes motion blur, but not the distortion: that is set by the readout time. Play runs the scene 50× slower than real time.',
+  id,
+  number,
+} = Astro.props;
+
+const sliders: { key: string; label: string; min: number; max: number; step: number | 'any'; value: number; scene?: string }[] = [
+  { key: 'rpm', label: 'Propeller speed', min: 0, max: 6000, step: 100, value: 1500, scene: 'prop' },
+  { key: 'scan', label: 'Readout progress', min: 0, max: 100, step: 'any', value: 50, scene: 'prop' },
+  { key: 'hz', label: 'Mains frequency', min: 40, max: 80, step: 1, value: 60, scene: 'flicker' },
+  { key: 'readout', label: 'Readout time', min: 1, max: 40, step: 1, value: 15 },
+  { key: 'exposure', label: 'Exposure time', min: 0, max: 1000, step: 'any', value: 500 },
+];
+---
+
+<Figure caption={caption} id={id} number={number}>
+  <rolling-shutter class="cam-fig img-fig">
+    <div class="chip-row">
+      <span class="label">Scene</span>
+      <div class="chips" role="radiogroup" aria-label="Scene">
+        <label><input type="radio" name="rs-scene" value="prop" checked />Spinning propeller</label>
+        <label><input type="radio" name="rs-scene" value="flicker" />Flickering light</label>
+      </div>
+      <button type="button" class="play-btn" data-action="play" aria-pressed="false">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path data-icon d="M3 1.5v9l7.5-4.5z"></path></svg>
+        <span data-out="playLabel">Play</span>
+      </button>
+    </div>
+    <div class="chip-row" data-scene="prop">
+      <span class="label">View</span>
+      <div class="chips" role="radiogroup" aria-label="View">
+        <label><input type="radio" name="rs-view" value="scan" checked />Scan line</label>
+        <label><input type="radio" name="rs-view" value="video" />Video</label>
+      </div>
+    </div>
+    <div class="views two">
+      <div class="view">
+        <div class="view-title"><span>Global shutter</span><span>all rows at once</span></div>
+        <canvas class="pixelated" width="240" height="160" role="img" aria-label="Capture with a global shutter" data-global></canvas>
+      </div>
+      <div class="view">
+        <div class="view-title"><span>Rolling shutter</span><span>row by row</span></div>
+        <canvas class="pixelated" width="240" height="160" role="img" aria-label="Capture with a rolling shutter" data-rolling></canvas>
+      </div>
+    </div>
+    <div class="view">
+      <div class="view-title"><span>Exposure window of each row</span><span data-out="axis">time →</span></div>
+      <svg viewBox="0 0 720 168" role="img" aria-label="Timing diagram of the exposure windows of the rows" data-timing></svg>
+    </div>
+    <noscript><p class="fallback">This interactive figure requires JavaScript.</p></noscript>
+
+    <div class="split-layout">
+      <div class="controls cols-2">
+        {
+          sliders.map((s) => (
+            <label data-scene={s.scene} hidden={s.scene !== undefined && s.scene !== 'prop'}>
+              <span class="label">
+                <span>{s.label}</span>
+                <output data-out={s.key}>—</output>
+              </span>
+              <input type="range" min={s.min} max={s.max} step={s.step} value={s.value} data-in={s.key} />
+            </label>
+          ))
+        }
+      </div>
+      <div class="readout">
+        <dl class="readout">
+          <dt data-out="lineLabel">Line time (1080 rows)</dt>
+          <dd data-out="line">—</dd>
+          <dt data-out="effectLabel">Rotation during readout</dt>
+          <dd data-out="effect">—</dd>
+          <dt data-out="blurLabel">Motion during exposure</dt>
+          <dd data-out="blur">—</dd>
+        </dl>
+        <button type="button" data-action="reset">Reset</button>
+      </div>
+    </div>
+  </rolling-shutter>
+</Figure>
+
+<style>
+  [hidden] {
+    display: none !important;
+  }
+
+  .cam-fig .play-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: auto;
+    padding: 0.35rem 0.95rem 0.35rem 0.8rem;
+    font-weight: 600;
+    color: var(--bg);
+    background: var(--accent);
+    border-color: var(--accent);
+    border-radius: 999px;
+  }
+
+  .cam-fig .play-btn:hover {
+    border-color: var(--accent);
+    filter: brightness(1.1);
+  }
+
+  .cam-fig .play-btn svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    fill: currentColor;
+    background: none;
+    border-radius: 0;
+  }
+</style>
+
+<script>
+  import { whenVisible } from '@/lib/when-visible';
+
+  class RollingShutterElement extends HTMLElement {
+    connectedCallback() {
+      whenVisible(this, async () => {
+        const { mountRollingShutter } = await import('./rolling-shutter');
+        mountRollingShutter(this);
+      });
+    }
+  }
+
+  if (!customElements.get('rolling-shutter')) {
+    customElements.define('rolling-shutter', RollingShutterElement);
+  }
+</script>

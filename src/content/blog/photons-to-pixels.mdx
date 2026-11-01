@@ -56,6 +56,11 @@ references:
     title: Do *you* understand ISO?
     venue: YouTube
     url: https://www.youtube.com/watch?v=ZWSvHBG7X0w
+  smartereveryday-rolling-shutter:
+    author: SmarterEveryDay
+    title: 'Why Do Cameras Do This? | Rolling Shutter Explained (Smarter Every Day 172)'
+    venue: YouTube
+    url: https://www.youtube.com/watch?v=dNVtMmLlnoE
   libraw:
     author: LibRaw LLC
     title: 'LibRaw: a library for reading RAW files from digital cameras'
@@ -78,6 +83,8 @@ import IspPipeline from '@/components/interactive/imaging/IspPipeline.astro';
 import ChromaSubsampling from '@/components/interactive/imaging/ChromaSubsampling.astro';
 import YuvLayout from '@/components/interactive/imaging/YuvLayout.astro';
 import RangeExplorer from '@/components/interactive/imaging/RangeExplorer.astro';
+import DepthOfField from '@/components/interactive/imaging/DepthOfField.astro';
+import RollingShutter from '@/components/interactive/imaging/RollingShutter.astro';
 
 {/*
   DRAFT. Each section has a TODO comment listing what to discuss; the figures are already placed.
@@ -88,7 +95,7 @@ import RangeExplorer from '@/components/interactive/imaging/RangeExplorer.astro'
 
 ## Introduction
 
-The camera pose series started from the point where we already have an image (specifically a RGB image), and I mentioned I will write a separate post on the lower-level parts of the camera. This is the post that dives into the low-level details such as camera sensors, image processing by ISP and pixel formats. These topics are genuinely interesting by themselves, so I did spent quite a bit of time digging into the technical details. However, as a robotics engineer, these knowledge have helped me on various occasions such as choosing gain and exposure, fixing "colors look wrong" issues, and picking a pixel format such that data fits on USB bandwidth. These decisions are becoming more important since camera images are essential part of the modern learning-based approach, and how image looks like may change how traning and inference is done, and ultimately whether task succeeds or fails.
+The camera pose series started from the point where we already have an image (specifically a RGB image), and I mentioned I will write a separate post on the lower-level parts of the camera. This is the post that dives into the low-level details such as camera sensors, image processing by ISP and pixel formats. These topics are genuinely interesting by themselves, so I did spent quite a bit of time digging into the technical details. However, as a robotics engineer, these knowledge have helped me on various occasions such as choosing gain and exposure, fixing "colors look wrong" (or "colors look washed out") issues, and picking a pixel format such that data fits on USB bandwidth. These decisions are becoming more important since camera images are essential part of the modern learning-based approach, and how image looks like may change (with decisions *unknowningly* made by you or by camera) how traning and inference is done. This may determine whether task succeeds or fails.
 
 In this post, I will focus on the process that happens between photon hitting a sensor, and us getting bytes. How those bytes affect downstream tasks will be covered in the future.
 
@@ -98,25 +105,126 @@ In this post, I will focus on the process that happens between photon hitting a 
   - Why a robotics engineer should care: choosing exposure/gain for a moving robot, debugging "the colors look
     wrong" / "the image is washed out", picking a pixel format that fits the USB bandwidth, reading a sensor datasheet.
   - The image your program receives is the product of many choices made before it (some by you, most by the ISP).
-  - Scope: sensor → ISP → pixel format. Not covered: compression, transport, lens design.
+  - Scope: lens basics → sensor → ISP → pixel format. Not covered: compression, transport, lens design beyond
+    aperture and focus.
 */}
+
+### Overview
+
+The following diagram illustrates some of the steps that is taken between light and the bytes. Overall process is divided into three groups: sensor, imsage signal processor(ISP), and output. We will go through each group and see what steps are taken in each group. You can get the taste of each process from the interactive diagram below!
 
 <ImagingPipeline id="pipeline" />
 
-{/* TODO: walk through [@fig:pipeline] in one paragraph; each row is one main section below. Suggest stepping
-    through the stages with Next to watch the raw frame turn into the final image. */}
+{/* TODO: walk through [@fig:pipeline] in one paragraph; each row is one main section below. Suggest hovering
+    along the stages to watch the raw frame turn into the final image. */}
+
+## Lens
+
+{/* TODO
+  - What the lens does: forms an image of the scene on the sensor. Only the parts that change the pixels matter
+    here: how much light gets through (aperture), what is sharp (focus, depth of field), and the field of view.
+  - Focal length and sensor size set the field of view; link back to the intrinsics in the camera pose series
+    (f in pixels = focal length / pixel pitch).
+  - Lens effects the ISP has to deal with later: vignetting (→ lens shading correction), and distortion
+    (handled by calibration, not the ISP, in most robotics stacks).
+*/}
+
+### Aperture and Depth of Field
+
+{/* TODO
+  - f-number N = focal length / aperture diameter. Light reaching the sensor ∝ 1/N²: one stop = ×√2 in N
+    (f/2 → f/2.8 halves the light). Aperture is the third knob next to exposure time and gain (the "exposure
+    triangle"), and the only one that does not add blur or noise, but it changes what is sharp.
+  - Depth of field: the range of distances that look sharp, set by N, focal length, subject distance and the
+    acceptable blur (circle of confusion, for us about one or two pixels). Wider aperture → shallower depth of
+    field. Hyperfocal distance: focus there and everything from half that distance to infinity is acceptably
+    sharp; this is how fixed-focus robot cameras are set up.
+  - Diffraction: stopping down too far blurs again (Airy disk diameter ≈ 2.44 λ N; at f/8 and 550 nm about
+    10.7 µm, several pixels on a 2–3 µm sensor). So there is a sweet spot, and small-pixel sensors hit it early.
+  - Practical: most robotics cameras have a fixed aperture and fixed (or M12, screw-set) focus; autofocus is
+    usually unwanted because it changes the intrinsics. Wider aperture also means stronger vignetting.
+  - Real example: the sample frame used in the figures was shot wide open, so only the handlebar stem is sharp;
+    the ColorChecker and the background are visibly out of focus.
+*/}
+
+<DepthOfField id="dof" />
+
+{/* TODO: suggested experiments with [@fig:dof]: stop down from f/1.4 to f/22 and watch the sharp range grow, then
+    vanish once diffraction exceeds the acceptable blur; press "Focus at hyperfocal"; switch to 1.5 µm pixels. */}
 
 ## The Sensor: Turning Light into Numbers
+A *sensor* is the chip with a grid of photosites where each converts photons into electrons and ultimately into a voltage that a circuit can read. Having the mental model of how sensor works have helped me understand how various aspects of the sensor affects the image it produces. Let me go through some of these one by one.
 
 {/* TODO
   - A sensor is a grid of photosites. Each converts photons → electrons (quantum efficiency),
     stores them up to the full-well capacity, and the charge is read out as a voltage.
   - CMOS vs CCD in one or two sentences (CMOS is what you will meet in practice).
   - The sensor only counts photons: it has no notion of color (sets up the Bayer section).
-  - Global vs rolling shutter: maybe a short aside or Sidenote, since it matters for moving robots.
 */}
 
+### Global and Rolling Shutter
+
+Next step in the lense that we may consider as roboics engineer is whether camera is *global* or *rolling shutter*. Briefly speaking, global shutter is when lights are captured at the same moment for all pixel of the sensor. In rolling shutter, lights are caputred for each row, sensor values are read out, and then moves onto the next row. The difference between the first and last row is the *readout time*, which may span few to tends of milliseconds. Most importantly, this means that each row of an image is captured at slightly difference time. This may create a weird distortion when object is moving, which can be simulated in the diagram below. For real footages and excellent explanation of how it works can also be found in [@smartereveryday-rolling-shutter].
+
+For robotics application, this means that the image you are getting (and feeding to the policy) may be distorted, and distorted diffrently depending on how the object is moving. Technically speaking, this also means if your policy is deployed on a new hardware with different characteristics, it may produce different image that is different from the one you saw during training. However, its impact on the overall training pipeline (such as VLA) should be minimal since objects aren't moving fast enough. 
+
+The distortion from the rolling shutter becomes bigger problem if you are working with visual SLAM or marker-based estimation. Here, accuracy is determined by the visual feature (and strong prior on the shape of marker), and even slight distortion may affect the accuracy of the estimated pose.
+
+{/* TODO
+  - Rolling shutter: rows are reset and read out one after another, so each row is exposed over a slightly
+    different time window; the difference between the first and last row is the readout time (a few to tens of
+    ms). Global shutter: all pixels start and stop exposing at the same instant, with a storage node per pixel.
+  - Artifacts of a rolling shutter under motion: skew (leaning verticals when panning), wobble ("jello" from
+    vibration), partial exposure with flashes/strobes, banding under flickering LED light.
+    A high-speed camera filming a phone's rolling shutter shows exactly how the rows are scanned
+    [@smartereveryday-rolling-shutter].
+  - Why it matters for robots: fast motion and vibration (drones, arms, mobile bases), visual(-inertial)
+    odometry and SLAM (needs a rolling-shutter camera model or per-row timestamps), calibration targets that
+    move, and syncing several cameras or a strobe.
+  - Costs of a global shutter: an extra storage element per pixel → larger pixels, lower fill factor, more
+    noise/lower dynamic range, higher price. Typical choices: rolling for phones and webcams, global for machine
+    vision and tracking (e.g. OV9281, Sony IMX296 in the Raspberry Pi GS camera).
+  - Exposure time vs readout time: a short exposure does not remove rolling-shutter skew, it only removes blur.
+*/}
+
+<RollingShutter id="rolling-shutter" />
+
+{/* TODO: suggested experiments with [@fig:rolling-shutter]: shorten the exposure (blur goes, the bend stays);
+    shorten the readout; in the flicker scene set the exposure to 10 ms (one 100 Hz cycle) and the bands vanish. */}
+
 ### Exposure Time
+
+*Exposure time* is how long each photosites integrate the light to produce the voltage output. Doubling the exposure time literally doubles the photons it captures, and hence the voltage signal. Practically speaking, exposure time is probably the first setting you can tune from the software. If exposure time is too small, image will be dark (since there's less photons captured). Therefore, the usual goal is to increase the exposure time to obtain a bright image. However, it comes with the following trade-offs.
+
+#### Maximum Frame Rate
+
+The theoretical upper limit of the exposure time if often capped by the maximum frame rate. Camera has to capture an image, read and process it, and send it the host. This process is repeated for each frame it generates. Therefore, it is obvious that exposure time cannot be longer than the desired (or supported) frame rate. Oftentimes, cameras support 30hz to 60hz, leading to upper bound of 33.3ms or 16.6ms for the exposure time. In practice, we have to factor in the read-out time from the sensor (which includes additional operations such as reading the photosites value, ISP processing) which limits the maximum exposure time to be around 30ms or 15ms.
+
+#### Motion Blur
+
+Now, with maximum frame rate given, you may decide to choose maximum exposure time to be 30ms (for 30 fps) right away. However, a second limiting factor is the *motion blur*. Recall that photosites integrates the photons it receives during the exposure time. The photons that hits the sensors are from the same *ray* of the light. Now imagine an object moving pass the ray. During first few moment, photons will not be from an object, and sensor will integrate photons from the background. Once the object enters, sensors will not integrate the photons from the object. If the object leaves the ray, sensor will integrate the background again. Compared this to the ray where object was fixed throughout the expsoure time. Both sensor will *see* the object, but the one with moving object will have less intensity of the object. On the image, this shows up as motion blur, where object seems to be smeared across pixel instead of being a sharp snapshot.
+
+Given the principle of the motion blur, now we can see that the followings affect its severity: i) exposure time, ii) speed of the object. If object is moving fast, it requires lower exposure to limit the effect of the motion blur.
+
+<Callout label="Practical Experience" title="Motion Blur in Visual SLAM">
+
+In practice, I have payed great attention to this when I worked on visual SLAM. Suppose camera is moving and we want to estimate its pose from the image. For typical visual SLAM, algorithm obtains features to track from the image. However, features that are far from the camera, coupled with fast rotation of the camera causes high velocity of the feature with respect to camera. Hence, it will have high motion blur, making features from the background highly noisy and inaccurate.
+
+More specifically,
+</Callout>
+
+#### Saturation 
+
+Long exposure also may cause the *saturation* issue. If exposure is too long, and there's too much light on the sensor, its circuitary becomes saturated. Its impact on the resulting image is that image contains pixels that are at the highest brightness, and it cannot distinguish two pixels which reached saturation. This means image loses details and causes issues such as missing an edge or an object.
+
+In practice, I never faced the saturation issue. For many robotics application, the scene is usually well-lit so the light is relatively uniform, and you can always reduce the exposure if this happens.
+
+#### Flickering 
+
+Perhaps a bigger constraint on the exposure time for robotics application is the *flickering*. Flickering is visual artifact in the video where we see either a bands of varying brightness across the image (for rolling shutter) or changing brightness of the whole image throughout the video. This happens because of how modern artificial lighting (e.g., standard LEDs) work.
+
+Although the modern lighting seems to have a constant brightness, in reality its brightness oscillates due to the usage of AC power. Depending on the frequency of the AC power, its light oscillates with twice the frequency. For example, lights installed in the region with 60hz AC power will have light pulses at 120hz (which is period of 8.33ms). Then the brightness of an image can be found as the integrate of the light across its exposure time.
+
 
 {/* TODO
   - How long the photosites integrate light. Doubling it doubles the signal ("one stop").
